@@ -4,7 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src * ws: wss: data: blob:;">
-<title>NGS VR Workspace v0.3 · CONEXÃO PC · GESTOS COMPLETOS</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NGS VR">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22NGS%20VR%20Workspace%22%2C%22short_name%22%3A%22NGS%20VR%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22background_color%22%3A%22%230a0a12%22%2C%22theme_color%22%3A%22%237c3aed%22%2C%22start_url%22%3A%22.%2F%22%7D">
+<title>NGS VR Workspace v0.4 · VR ESTÉREO · GESTOS PUROS</title>
 <style>
 /* ===== RESET & BASE ===== */
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -21,25 +26,42 @@
 }
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;touch-action:none;}
 
+/* ===== MODO VR BOX: desativa pointer-events em todos elementos interativos ===== */
+body.vrbox-mode #bottomBar,
+body.vrbox-mode #radialMenu,
+body.vrbox-mode .panel-overlay,
+body.vrbox-mode #keyboard{
+  pointer-events:none!important;
+}
+body.vrbox-mode #bottomBar .bb-btn{cursor:default!important;}
+body.vrbox-mode #radialMenu.open{pointer-events:all!important;} /* mantém gesture selection */
+
 /* ===== INTRO SCREEN ===== */
-#intro{position:fixed;inset:0;background:linear-gradient(135deg,#0a0a12 0%,#1a0a2e 50%,#0a1220 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px;}
+#intro{position:fixed;inset:0;background:linear-gradient(135deg,#0a0a12 0%,#1a0a2e 50%,#0a1220 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:12px;}
 #intro .logo{font-size:3rem;text-shadow:0 0 40px var(--accent2);}
 #intro h1{font-size:1.5rem;font-weight:700;background:linear-gradient(135deg,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
 #intro .sub{font-size:0.75rem;color:var(--text2);letter-spacing:2px;text-transform:uppercase;}
 #intro .badge{background:var(--accent);color:#fff;padding:4px 12px;border-radius:999px;font-size:0.7rem;font-weight:700;margin-top:4px;}
-#intro .start-btn{margin-top:24px;padding:14px 32px;background:var(--accent);border:none;border-radius:12px;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 0 32px var(--glow);transition:transform 0.2s;}
+#intro .start-btn{margin-top:16px;padding:14px 32px;background:var(--accent);border:none;border-radius:12px;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 0 32px var(--glow);transition:transform 0.2s;touch-action:manipulation;pointer-events:all!important;}
 #intro .start-btn:hover{transform:scale(1.05);}
-#intro .hint{font-size:0.75rem;color:var(--text2);text-align:center;max-width:280px;margin-top:8px;}
+#intro .hint{font-size:0.75rem;color:var(--text2);text-align:center;max-width:300px;}
+#intro .intro-options{display:flex;flex-direction:column;gap:8px;width:100%;max-width:280px;margin-top:4px;}
+.intro-toggle-row{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;}
+.intro-toggle-row label{font-size:0.8rem;color:var(--text2);}
+#vrboxModeInfo{font-size:0.7rem;color:var(--warn);text-align:center;display:none;padding:4px 8px;background:rgba(245,158,11,0.1);border-radius:6px;border:1px solid rgba(245,158,11,0.3);}
 
 /* ===== CANVAS (3D) ===== */
 #canvas3d{position:fixed;inset:0;width:100%;height:100%;}
+
+/* ===== VR DIVIDER (linha central em modo VR) ===== */
+#vrDivider{position:fixed;left:50%;top:0;bottom:0;width:2px;background:rgba(255,255,255,0.3);z-index:1000;display:none;transform:none;}
 
 /* ===== CAMERA PASSTHROUGH ===== */
 #cameraFeed{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:0;transition:opacity 0.4s;pointer-events:none;}
 #cameraFeed.active{opacity:1;}
 
 /* ===== HUD ===== */
-#hud{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(10,10,18,0.7);backdrop-filter:blur(8px);z-index:100;border-bottom:1px solid var(--border);}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(10,10,18,0.7);backdrop-filter:blur(8px);z-index:100;border-bottom:1px solid var(--border);pointer-events:none;}
 .hud-info{display:flex;gap:12px;align-items:center;font-size:0.7rem;color:var(--text2);}
 .hud-badge{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:var(--text);}
 #fpsBadge{color:var(--ok);}
@@ -50,6 +72,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .hud-title{font-size:0.75rem;font-weight:700;color:var(--accent2);}
 #gestureHint{font-size:0.65rem;color:var(--warn);opacity:0;transition:opacity 0.3s;max-width:200px;text-align:center;}
 #gestureHint.show{opacity:1;}
+#vrModeBadge{background:linear-gradient(135deg,#7c3aed,#0ea5e9);color:#fff;padding:2px 8px;border-radius:6px;font-size:0.6rem;font-weight:700;display:none;}
+#vrModeBadge.show{display:inline-block;}
 
 /* ===== BOTTOM BAR ===== */
 #bottomBar{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:rgba(10,10,18,0.8);backdrop-filter:blur(8px);z-index:100;border-top:1px solid var(--border);}
@@ -70,6 +94,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .finger-cursor{position:fixed;width:20px;height:20px;border-radius:50%;border:3px solid;pointer-events:none;z-index:300;transform:translate(-50%,-50%);transition:left 0.05s,top 0.05s;display:none;}
 #fingerCursorL{border-color:#38bdf8;background:rgba(56,189,248,0.3);}
 #fingerCursorR{border-color:#f472b6;background:rgba(244,114,182,0.3);}
+/* VR mode duplica cursores */
+.finger-cursor-vr{position:fixed;width:20px;height:20px;border-radius:50%;border:3px solid;pointer-events:none;z-index:300;transform:translate(-50%,-50%);display:none;}
+#fingerCursorLR{border-color:#38bdf8;background:rgba(56,189,248,0.3);}
+#fingerCursorRR{border-color:#f472b6;background:rgba(244,114,182,0.3);}
 
 /* ===== PANELS OVERLAY ===== */
 .panel-overlay{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 0 40px rgba(0,0,0,0.6);z-index:400;min-width:300px;max-width:90vw;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;}
@@ -80,7 +108,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .hidden{display:none!important;}
 
 /* ===== GESTURE PANEL ===== */
-#gesturePanel{}
 .gesture-list{display:flex;flex-direction:column;gap:10px;}
 .gesture-item{display:flex;align-items:center;gap:12px;background:var(--surface2);border-radius:10px;padding:10px 12px;}
 .gesture-item .g-icon{font-size:1.4rem;min-width:32px;text-align:center;}
@@ -99,8 +126,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .conn-dot.connecting{background:var(--warn);animation:pulse 1s infinite;}
 .btn-primary{width:100%;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:0.85rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
 .btn-secondary{width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.8rem;cursor:pointer;}
+.btn-warn{width:100%;padding:8px;background:rgba(245,158,11,0.15);border:1px solid var(--warn);border-radius:8px;color:var(--warn);font-size:0.75rem;cursor:pointer;margin-bottom:6px;}
 #serverScriptBox{background:#0a0a12;border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:0.6rem;color:#a0ffa0;white-space:pre-wrap;max-height:200px;overflow-y:auto;margin-top:8px;}
 .copy-btn{padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:0.7rem;cursor:pointer;margin-top:6px;}
+#diagBox{background:#0a0a12;border:1px solid var(--err);border-radius:8px;padding:10px;font-family:monospace;font-size:0.65rem;color:#ff9999;margin-top:8px;display:none;white-space:pre-wrap;max-height:120px;overflow-y:auto;}
+.conn-hint{font-size:0.7rem;color:var(--warn);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.5;}
+.conn-hint strong{color:#fff;}
 
 /* ===== VIRTUAL KEYBOARD ===== */
 #keyboard{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--border);z-index:500;padding:8px;display:flex;flex-direction:column;gap:4px;}
@@ -143,33 +174,65 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .color-row{display:flex;gap:6px;padding:8px 0;}
 .color-swatch{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;}
 .color-swatch.selected{border-color:#fff;box-shadow:0 0 8px rgba(255,255,255,0.5);}
+.section-title{font-size:0.75rem;color:var(--text2);margin:12px 0 6px;font-weight:600;text-transform:uppercase;letter-spacing:1px;}
 
 /* ===== NOTES PANEL ===== */
 #notesPanel textarea{width:100%;height:300px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:0.85rem;resize:none;}
 #notesPanel textarea:focus{outline:none;border-color:var(--accent);}
 
-/* ===== BROWSER PANEL ===== */
+/* ===== BROWSER PANEL (favoritos) ===== */
+#browserPanel .fav-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.fav-item{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 6px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;}
+.fav-item:hover,.fav-item.hovered{border-color:var(--accent);box-shadow:0 0 10px var(--glow);}
+.fav-item .fav-icon{font-size:1.6rem;}
+.fav-item .fav-name{font-size:0.65rem;color:var(--text2);text-align:center;}
 #browserPanel .url-bar{display:flex;gap:6px;margin-bottom:8px;}
 #browserPanel .url-bar input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:0.8rem;}
-#browserPanel iframe{width:100%;height:300px;border:1px solid var(--border);border-radius:8px;}
+.browser-hint{font-size:0.7rem;color:var(--text2);background:var(--surface2);border-radius:8px;padding:8px;text-align:center;margin-top:8px;}
 
 /* ===== ANIMATIONS ===== */
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
 @keyframes fadeIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.9);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}
 .panel-overlay{animation:fadeIn 0.2s ease-out;}
-@keyframes ringAppear{from{opacity:0;transform:scale(0.8);}to{opacity:1;transform:scale(1);}}
+
+/* ===== VR MODE OVERLAY ===== */
+#vrBoxModeOverlay{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(124,58,237,0.85);color:#fff;padding:6px 16px;border-radius:999px;font-size:0.7rem;font-weight:700;z-index:150;pointer-events:none;display:none;white-space:nowrap;}
+body.vrbox-mode #vrBoxModeOverlay{display:block;}
 </style>
 </head>
 <body>
+
+<!-- ===== SVG FILTER BARREL DISTORTION ===== -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="barrel-distort" x="-5%" y="-5%" width="110%" height="110%">
+      <feImage result="map" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3C/svg%3E"/>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="20" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
 
 <!-- ===== INTRO SCREEN ===== -->
 <div id="intro">
   <div class="logo">🥽</div>
   <h1>NGS VR Workspace</h1>
   <div class="sub">Neural Gesture System</div>
-  <div class="badge">v0.3 · CONEXÃO PC · GESTOS COMPLETOS</div>
+  <div class="badge">v0.4 · VR ESTÉREO · GESTOS PUROS</div>
+  <div class="intro-options">
+    <div class="intro-toggle-row">
+      <label>🥽 Modo VR Box (apenas gestos)</label>
+      <label class="toggle"><input type="checkbox" id="vrBoxToggle" onchange="toggleVRBoxMode(this.checked)"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="intro-toggle-row">
+      <label>📺 VR Estéreo Split-Screen</label>
+      <label class="toggle"><input type="checkbox" id="vrStereoToggle"><span class="toggle-slider"></span></label>
+    </div>
+    <div id="vrboxModeInfo">Modo VR Box: somente gestos — toque físico desativado</div>
+  </div>
+  <!-- IMPORTANTE: start-btn ainda clicável mesmo em modo VR Box (celular ainda fora do aparelho) -->
   <button class="start-btn" id="startBtn">🚀 Iniciar Experiência</button>
   <div class="hint">Permite acesso à câmera e ao sensor de orientação quando solicitado</div>
+  <div class="hint" style="margin-top:4px;color:#a855f7;font-size:0.7rem;">💡 Para instalar como PWA: abra via servidor Python <strong>http://[IP]:8080</strong> e use "Adicionar à tela inicial"</div>
 </div>
 
 <!-- ===== CAMERA PASSTHROUGH ===== -->
@@ -177,6 +240,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 
 <!-- ===== 3D CANVAS ===== -->
 <canvas id="canvas3d"></canvas>
+
+<!-- ===== VR DIVIDER (linha central modo VR estéreo) ===== -->
+<div id="vrDivider"></div>
 
 <!-- ===== HUD ===== -->
 <div id="hud">
@@ -186,8 +252,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
       <div id="wsIndicator"></div>
       <span id="wsStatusText">Desconectado</span>
     </div>
+    <span id="vrModeBadge">🥽 VR</span>
   </div>
-  <div class="hud-title">NGS VR v0.3</div>
+  <div class="hud-title">NGS VR v0.4</div>
   <div id="gestureHint">👋 Aguardando gesto...</div>
 </div>
 
@@ -205,9 +272,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
     <span class="icon">🎯</span>
     <span>Calibrar</span>
   </div>
-  <div class="bb-btn" id="btnTheme" onclick="toggleTheme()">
-    <span class="icon">🌙</span>
-    <span>Tema</span>
+  <div class="bb-btn" id="btnVR" onclick="toggleVRMode()">
+    <span class="icon">🥽</span>
+    <span>VR</span>
   </div>
   <div class="bb-btn" id="btnKeyboard" onclick="toggleKeyboard()">
     <span class="icon">⌨️</span>
@@ -215,9 +282,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
   </div>
 </div>
 
-<!-- ===== FINGER CURSORS ===== -->
+<!-- ===== VR BOX MODE OVERLAY ===== -->
+<div id="vrBoxModeOverlay">🥽 VR Box: controle apenas por gestos</div>
+
+<!-- ===== FINGER CURSORS (principais) ===== -->
 <div class="finger-cursor" id="fingerCursorL"></div>
 <div class="finger-cursor" id="fingerCursorR"></div>
+<!-- Finger cursors espelhados para olho direito em modo VR -->
+<div class="finger-cursor-vr" id="fingerCursorLR"></div>
+<div class="finger-cursor-vr" id="fingerCursorRR"></div>
 
 <!-- ===== PROGRESS RING ===== -->
 <div id="progressRing">
@@ -234,7 +307,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 <div id="radialMenu">
   <div class="radial-bg" onclick="closeRadialMenu()"></div>
   <div class="radial-center" id="radialCenter">
-    <!-- Items positioned via JS -->
+    <!-- Items posicionados via JS -->
   </div>
 </div>
 
@@ -247,14 +320,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
   <div class="panel-body">
     <div class="gesture-list">
       <div class="gesture-item"><div class="g-icon">🤚</div><div class="gesture-info"><div class="gesture-name">Mão Aberta (0.4s)</div><div class="gesture-desc">Abre o Menu Radial</div></div></div>
-      <div class="gesture-item"><div class="g-icon">✊</div><div class="gesture-info"><div class="gesture-name">Punho Fechado (1.5s, mão direita)</div><div class="gesture-desc">Recalibra a câmera / giroscópio</div></div></div>
-      <div class="gesture-item"><div class="g-icon">👌</div><div class="gesture-info"><div class="gesture-name">Pinça (polegar + indicador)</div><div class="gesture-desc">Seleciona item ou arrasta painel</div></div></div>
-      <div class="gesture-item"><div class="g-icon">🤏🤏</div><div class="gesture-info"><div class="gesture-name">2 Pinças simultâneas</div><div class="gesture-desc">Zoom do painel 3D</div></div></div>
+      <div class="gesture-item"><div class="g-icon">✊</div><div class="gesture-info"><div class="gesture-name">Punho Fechado (1.5s, mão direita)</div><div class="gesture-desc">Recalibra o giroscópio</div></div></div>
+      <div class="gesture-item"><div class="g-icon">👌</div><div class="gesture-info"><div class="gesture-name">Pinça (polegar + indicador)</div><div class="gesture-desc">Seleciona item ou clica</div></div></div>
+      <div class="gesture-item"><div class="g-icon">🤏🤏</div><div class="gesture-info"><div class="gesture-name">2 Pinças simultâneas</div><div class="gesture-desc">Zoom da cena 3D</div></div></div>
       <div class="gesture-item"><div class="g-icon">☝️</div><div class="gesture-info"><div class="gesture-name">Dedo Indicador (menu aberto)</div><div class="gesture-desc">Cursor no menu radial / teclado</div></div></div>
-      <div class="gesture-item"><div class="g-icon">✌️</div><div class="gesture-info"><div class="gesture-name">V de Vitória</div><div class="gesture-desc">Liga/desliga passthrough de câmera</div></div></div>
+      <div class="gesture-item"><div class="g-icon">✌️</div><div class="gesture-info"><div class="gesture-name">V de Vitória</div><div class="gesture-desc">Liga/desliga câmera passthrough</div></div></div>
       <div class="gesture-item"><div class="g-icon">👍</div><div class="gesture-info"><div class="gesture-name">Polegar para cima</div><div class="gesture-desc">Centraliza/recalibra câmera</div></div></div>
-      <div class="gesture-item"><div class="g-icon">👌</div><div class="gesture-info"><div class="gesture-name">Dupla pinça rápida (&lt;300ms)</div><div class="gesture-desc">Clique direito do mouse no PC</div></div></div>
-      <div class="gesture-item"><div class="g-icon">🤚↕</div><div class="gesture-info"><div class="gesture-name">Mão esquerda aberta + mover verticalmente</div><div class="gesture-desc">Scroll no PC conectado</div></div></div>
+      <div class="gesture-item"><div class="g-icon">☝️☝️</div><div class="gesture-info"><div class="gesture-name">2 Indicadores juntos (0.5s)</div><div class="gesture-desc">Liga/desliga modo VR Estéreo</div></div></div>
+      <div class="gesture-item"><div class="g-icon">🤚⬛</div><div class="gesture-info"><div class="gesture-name">Mão aberta fora do painel (0.4s)</div><div class="gesture-desc">[VR Box] Fecha o painel ativo</div></div></div>
     </div>
   </div>
 </div>
@@ -266,6 +339,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
     <button class="panel-close" onclick="closePanel('connectionPanel')">✕</button>
   </div>
   <div class="panel-body">
+    <div class="conn-hint">
+      <strong>⚠️ Evite erros de Mixed Content:</strong><br>
+      Abra no celular via servidor HTTP:<br>
+      <strong id="httpHint">http://[IP_DO_PC]:8080</strong><br>
+      <span style="font-size:0.65rem;color:var(--text2);">Execute o script Python no PC primeiro</span>
+    </div>
     <div class="conn-status">
       <div class="conn-dot" id="connDot"></div>
       <span id="connStatusLabel">Desconectado</span>
@@ -275,14 +354,22 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
       <input type="text" id="pcIpInput" placeholder="192.168.1.100" value="">
     </div>
     <div class="field-group">
-      <label>Porta</label>
+      <label>Porta WebSocket</label>
       <input type="number" id="pcPortInput" placeholder="9001" value="9001">
     </div>
+    <div class="field-group">
+      <label>Token de acesso (mostrado no terminal do PC)</label>
+      <input type="password" id="pcTokenInput" placeholder="Cole o token do servidor" autocomplete="off">
+    </div>
+    <button class="btn-warn" onclick="testHTTPConnection()">🔍 Testar Conexão HTTP</button>
     <button class="btn-primary" id="connectBtn" onclick="togglePCConnection()">Conectar</button>
     <button class="btn-secondary" onclick="closePanel('connectionPanel')">Fechar</button>
+    <div id="diagBox"></div>
     <hr style="border-color:var(--border);margin:12px 0;">
-    <div style="font-size:0.75rem;color:var(--text2);margin-bottom:6px;font-weight:600;">📋 Script do Servidor Python</div>
-    <div style="font-size:0.7rem;color:var(--text2);margin-bottom:6px;">Copie e execute no seu PC para habilitar a conexão:</div>
+    <div style="font-size:0.75rem;color:var(--text2);margin-bottom:4px;font-weight:600;">🔥 Firewall Windows (PowerShell como Admin)</div>
+    <div style="background:#0a0a12;border-radius:6px;padding:8px;font-family:monospace;font-size:0.6rem;color:#a0ffa0;margin-bottom:8px;">netsh advfirewall firewall add rule name="NGS VR WS" dir=in action=allow protocol=TCP localport=9001 profile=private
+netsh advfirewall firewall add rule name="NGS VR HTTP" dir=in action=allow protocol=TCP localport=8080 profile=private</div>
+    <div style="font-size:0.75rem;color:var(--text2);margin-bottom:6px;font-weight:600;">📋 Script do Servidor Python v0.4</div>
     <div id="serverScriptBox"></div>
     <button class="copy-btn" onclick="copyServerScript()">📋 Copiar Script</button>
   </div>
@@ -295,8 +382,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
     <button class="panel-close" onclick="closePanel('settingsPanel')">✕</button>
   </div>
   <div class="panel-body">
+    <div class="section-title">🎮 Giroscópio</div>
     <div class="setting-row">
-      <label>Suavização do giroscópio</label>
+      <label>Suavização</label>
       <div class="range-group">
         <input type="range" id="gyroSmooth" min="0.01" max="0.3" step="0.01" value="0.08">
         <span id="gyroSmoothVal">0.08</span>
@@ -316,13 +404,30 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
         <span id="gyroInertiaVal">0.92</span>
       </div>
     </div>
+    <div class="section-title">🥽 VR Estéreo</div>
     <div class="setting-row">
-      <label>FPS do stream PC</label>
+      <label>IPD (mm)</label>
+      <div class="range-group">
+        <input type="range" id="ipdSlider" min="50" max="70" step="1" value="64">
+        <span id="ipdVal">64mm</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>Distorção barrel (k1)</label>
+      <div class="range-group">
+        <input type="range" id="barrelK1" min="0" max="0.6" step="0.05" value="0.3">
+        <span id="barrelK1Val">0.3</span>
+      </div>
+    </div>
+    <div class="section-title">📡 Stream PC</div>
+    <div class="setting-row">
+      <label>FPS do stream</label>
       <div class="range-group">
         <input type="range" id="streamFps" min="5" max="30" step="1" value="15">
         <span id="streamFpsVal">15</span>
       </div>
     </div>
+    <div class="section-title">🎨 Aparência</div>
     <div class="setting-row">
       <label>Tema escuro</label>
       <label class="toggle"><input type="checkbox" id="darkToggle" checked onchange="toggleTheme()"><span class="toggle-slider"></span></label>
@@ -331,7 +436,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
       <label>Mostrar barra inferior</label>
       <label class="toggle"><input type="checkbox" id="bottomBarToggle" checked onchange="toggleBottomBar()"><span class="toggle-slider"></span></label>
     </div>
-    <div style="font-size:0.75rem;color:var(--text2);margin:12px 0 6px;">Cor de destaque</div>
     <div class="color-row" id="colorSwatches">
       <div class="color-swatch selected" style="background:#7c3aed" data-color="#7c3aed" onclick="setAccentColor('#7c3aed','#a855f7')"></div>
       <div class="color-swatch" style="background:#0ea5e9" data-color="#0ea5e9" onclick="setAccentColor('#0ea5e9','#38bdf8')"></div>
@@ -354,18 +458,20 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
   </div>
 </div>
 
-<!-- ===== BROWSER PANEL ===== -->
+<!-- ===== BROWSER PANEL (favoritos - sem iframe) ===== -->
 <div class="panel-overlay hidden" id="browserPanel">
   <div class="panel-header">
     <h3>🌐 Navegador</h3>
     <button class="panel-close" onclick="closePanel('browserPanel')">✕</button>
   </div>
   <div class="panel-body">
+    <div class="conn-hint" style="margin-bottom:10px;">Sites abertos no navegador padrão do sistema</div>
+    <div class="fav-grid" id="favGrid"></div>
     <div class="url-bar">
-      <input type="url" id="browserUrl" placeholder="https://..." value="https://www.google.com">
-      <button class="btn-primary" style="width:auto;padding:6px 12px;margin:0;" onclick="loadBrowserUrl()">Ir</button>
+      <input type="url" id="browserUrl" placeholder="https://...">
+      <button class="btn-primary" style="width:auto;padding:6px 12px;margin:0;" onclick="openBrowserUrl()">Abrir</button>
     </div>
-    <iframe id="browserFrame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+    <div class="browser-hint">🔗 Os links abrirão no navegador padrão do sistema via nova aba</div>
   </div>
 </div>
 
@@ -383,6 +489,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
       <div class="info-card"><div class="val" id="sysOrientation">-</div><div class="lbl">Orientação (°)</div></div>
       <div class="info-card"><div class="val" id="sysFrames">-</div><div class="lbl">Frames PC</div></div>
       <div class="info-card"><div class="val" id="sysGyro">OFF</div><div class="lbl">Giroscópio</div></div>
+      <div class="info-card"><div class="val" id="sysVR">OFF</div><div class="lbl">VR Estéreo</div></div>
+      <div class="info-card"><div class="val" id="sysIPD">64mm</div><div class="lbl">IPD</div></div>
     </div>
   </div>
 </div>
@@ -399,76 +507,154 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
   <div class="kb-row" id="kbRow4"></div>
 </div>
 
-<!-- ===== SERVER SCRIPT (hidden) ===== -->
+<!-- ===== SERVER SCRIPT v0.4 (oculto, para cópia) ===== -->
 <textarea id="serverScriptContent" style="display:none;">
-# NGS VR PC Server v0.3
-# Instalação: pip install websockets mss pyautogui pillow
-# Uso: python ngs_vr_server.py
-# Depois conecte pelo celular usando o IP desta máquina na porta 9001
+# NGS VR PC Server v0.4
+# ============================================================
+# INSTALAÇÃO:
+#   py -m pip install websockets mss pyautogui pillow
+#
+# FIREWALL WINDOWS (executar como Admin no PowerShell):
+#   netsh advfirewall firewall add rule name="NGS VR WS" dir=in action=allow protocol=TCP localport=9001 profile=private
+#   netsh advfirewall firewall add rule name="NGS VR HTTP" dir=in action=allow protocol=TCP localport=8080 profile=private
+#
+# USO:
+#   py .\ngs_vr_server.py
+#   Depois abra no celular: http://[IP_MOSTRADO]:8080
+#   Digite no painel o token exibido no terminal do servidor.
+# ============================================================
 
-import asyncio, websockets, mss, base64, json, pyautogui
+import asyncio, websockets, mss, base64, json, threading, hmac, secrets
+import pyautogui, io, socket, os, sys
 from PIL import Image
-import io, time
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+sys.stdout.reconfigure(errors="replace")
+sys.stderr.reconfigure(errors="replace")
 
 pyautogui.FAILSAFE = False
 CLIENTS = set()
+AUTH_TOKEN = secrets.token_urlsafe(32)
 SCREEN_W, SCREEN_H = pyautogui.size()
+TARGET_FPS = 15
+HTML_PATH = os.path.abspath(__file__.replace('.py', '.html'))
+if not os.path.exists(HTML_PATH):
+    HTML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'NGS_VR_Workspace_0.4.html')
+
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
+
+class VRHTTPHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        try:
+            with open(HTML_PATH, 'rb') as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Content-Length', len(content))
+            self.end_headers()
+            self.wfile.write(content)
+        except FileNotFoundError:
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b'HTML file not found. Place ngs_vr_server.py in same folder as NGS_VR_Workspace_0.4.html')
+    def log_message(self, format, *args): pass
+
+def start_http_server(ip, port=8080):
+    server = HTTPServer(('0.0.0.0', port), VRHTTPHandler)
+    print(f"📱 Abra no celular: http://{ip}:{port}")
+    threading.Thread(target=server.serve_forever, daemon=True).start()
 
 async def capture_and_send(ws):
     sct = mss.mss()
     mon = sct.monitors[1]
     while True:
         try:
+            t = 1.0 / TARGET_FPS
             img = sct.grab(mon)
             pil = Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
-            pil = pil.resize((960, 540))
+            pil = pil.resize((960, 540), Image.LANCZOS)
             buf = io.BytesIO()
-            pil.save(buf, format="JPEG", quality=45)
+            pil.save(buf, format="JPEG", quality=50)
             b64 = base64.b64encode(buf.getvalue()).decode()
-            await ws.send(json.dumps({"type":"frame","data":b64}))
-            await asyncio.sleep(1/15)
+            await ws.send(json.dumps({"type": "frame", "data": b64}))
+            await asyncio.sleep(t)
         except Exception as e:
-            print(f"Capture error: {e}")
+            print(f"[Captura] {e}")
             break
 
 async def handler(ws):
+    global TARGET_FPS
+    remote = getattr(ws, 'remote_address', '?')
+
+    try:
+        auth = json.loads(await asyncio.wait_for(ws.recv(), timeout=15))
+    except (asyncio.TimeoutError, json.JSONDecodeError, websockets.exceptions.ConnectionClosed):
+        await ws.close(code=1008, reason="Authentication required")
+        return
+
+    if (not isinstance(auth, dict) or auth.get("type") != "auth" or
+            not isinstance(auth.get("token"), str) or
+            not hmac.compare_digest(auth["token"], AUTH_TOKEN)):
+        await ws.send(json.dumps({"type": "auth_error"}))
+        await ws.close(code=1008, reason="Authentication failed")
+        return
+
+    await ws.send(json.dumps({"type": "auth_ok"}))
     CLIENTS.add(ws)
-    print(f"Cliente conectado: {ws.remote_address}")
+    print(f"✅ Celular conectado: {remote}")
     send_task = asyncio.create_task(capture_and_send(ws))
     try:
         async for msg in ws:
             try:
                 cmd = json.loads(msg)
-                t = cmd.get("type","")
+                t = cmd.get("type", "")
                 if t == "mouse_move":
                     x = int(cmd["x"] * SCREEN_W)
                     y = int(cmd["y"] * SCREEN_H)
                     pyautogui.moveTo(x, y, duration=0)
                 elif t == "mouse_click":
-                    btn = cmd.get("button","left")
+                    btn = cmd.get("button", "left")
                     pyautogui.click(button=btn)
                 elif t == "scroll":
-                    pyautogui.scroll(cmd.get("dy",3))
+                    pyautogui.scroll(cmd.get("dy", 3))
                 elif t == "key":
                     pyautogui.press(cmd["key"])
                 elif t == "type":
                     pyautogui.write(cmd["text"], interval=0.02)
+                elif t == "ping":
+                    await ws.send(json.dumps({"type": "pong", "ts": cmd.get("ts", 0)}))
+                elif t == "set_fps":
+                    TARGET_FPS = max(5, min(30, int(cmd.get("fps", 15))))
+                    print(f"[Config] FPS atualizado para {TARGET_FPS}")
             except Exception as e:
-                print(f"Command error: {e}")
-    except Exception:
-        pass
+                print(f"[Cmd] {e}")
+    except Exception as e:
+        print(f"[Handler] {e}")
     finally:
         send_task.cancel()
         CLIENTS.discard(ws)
-        print(f"Cliente desconectado: {ws.remote_address}")
+        print(f"❌ Celular desconectado: {remote}")
 
 async def main():
-    import socket
-    hostname = socket.gethostname()
-    local_ip = socket.gethostbyname(hostname)
-    print(f"NGS VR Server rodando em ws://{local_ip}:9001")
-    print(f"Use o IP {local_ip} no celular para conectar")
-    async with websockets.serve(handler, "0.0.0.0", 9001):
+    ip = get_local_ip()
+    start_http_server(ip)
+    print(f"\n🖥️  NGS VR Server v0.4")
+    print(f"{'='*45}")
+    print(f"📱 Abra no celular: http://{ip}:8080")
+    print(f"🔌 WebSocket em:   ws://{ip}:9001")
+    print(f"🔐 Token de acesso: {AUTH_TOKEN}")
+    print(f"{'='*45}")
+    print("Pressione Ctrl+C para encerrar\n")
+    async with websockets.serve(handler, "0.0.0.0", 9001, ping_interval=20, ping_timeout=10):
         await asyncio.Future()
 
 asyncio.run(main())
@@ -491,28 +677,49 @@ let passthroughActive = false;
 let darkTheme = true;
 let radialMenuOpen = false;
 let gyroEnabled = false;
-let gyroCalibrated = false;
-let baseQuaternion = new THREE.Quaternion();
-let currentQuat = new THREE.Quaternion();
-let targetQuat = new THREE.Quaternion();
-let gyroVelocity = new THREE.Vector3();
-let lastGyroAngles = {alpha:0,beta:0,gamma:0};
-const DEG2RAD = Math.PI/180;
+let vrBoxMode = false; // Modo VR Box: somente gestos
 
-// Settings
+// ===== GIROSCÓPIO CORRIGIDO (PROBLEMA 2) =====
+// Usar deltas de ângulos, não quaternion de calibração
+let refAlpha = 0, refBeta = 0, refGamma = 0;
+let gyroCalibrated = false;
+let lastGyroEvent = null;
+let targetQuat = new THREE.Quaternion();
+
+// Settings de giroscópio
 let gyroSmoothFactor = 0.08;
-let gyroDeadzone = 2.0; // degrees
+let gyroDeadzone = 2.0;
 let gyroInertiaFactor = 0.92;
+
+// ===== VR ESTÉREO (PROBLEMA 5) =====
+let vrMode = false;        // false = mono, true = estéreo VR
+let cameraL = null;
+let cameraR = null;
+let vrRenderTarget = null;
+let barrelMaterial = null;
+let barrelScene = null;
+let barrelCamera = null;
+let barrelMesh = null;
+const VR_IPD_DEFAULT = 0.064; // 6.4cm
+let VR_EYE_SEP = VR_IPD_DEFAULT / 2;
+let barrelK1 = 0.3;
+let barrelK2 = 0.1;
 
 // Hand tracking state
 let handsData = {left:null, right:null};
 let leftPinching = false, rightPinching = false;
 let leftPinchPrev = false, rightPinchPrev = false;
-let leftHandOpen = false, rightHandOpen = false;
 let rightFistHeld = false;
 let rightFistTimer = null;
 let openHandTimer = null;
 let gestureDebounce = {};
+
+// Gesto de dois indicadores juntos para toggle VR
+let dualIndexTimer = null;
+let dualIndexActive = false;
+
+// VR Box: fechar painel com mão aberta fora
+let openHandOutsidePanelTimer = null;
 
 // PC Connection
 let pcWebSocket = null;
@@ -528,11 +735,8 @@ let lastPinchTime = 0;
 
 // 3D Panels
 let panels3D = [];
-let dragPanel = null;
-let dragOffset = new THREE.Vector3();
-let panelScales = {};
 
-// FPS
+// FPS counter
 let frameCount = 0, fps = 60;
 let fpsInterval = setInterval(()=>{fps=frameCount;frameCount=0;document.getElementById('fpsBadge').textContent=fps+' FPS';},1000);
 
@@ -548,6 +752,7 @@ const RADIAL_ITEMS = [
   {id:'sysinfo',   icon:'📊', label:'Sistema',   action:()=>openPanel('sysPanel')},
   {id:'notes',     icon:'📝', label:'Notas',     action:()=>openPanel('notesPanel')},
   {id:'browser',   icon:'🌐', label:'Browser',   action:()=>openPanel('browserPanel')},
+  {id:'vr',        icon:'🥽', label:'VR',        action:()=>toggleVRMode()},
 ];
 
 // ============================================================
@@ -561,22 +766,59 @@ const KB_ROWS = [
 ];
 
 // ============================================================
+//  FAVORITOS DO BROWSER (PROBLEMA 4)
+// ============================================================
+const FAVORITES = [
+  {icon:'🔍', name:'Google',    url:'https://www.google.com'},
+  {icon:'📺', name:'YouTube',   url:'https://www.youtube.com'},
+  {icon:'📖', name:'Wikipedia', url:'https://en.m.wikipedia.org'},
+  {icon:'🐙', name:'GitHub',    url:'https://github.com'},
+  {icon:'🗺️', name:'Maps',     url:'https://maps.google.com'},
+  {icon:'📰', name:'BBC News',  url:'https://www.bbc.com/news'},
+  {icon:'🌤️', name:'Clima',    url:'https://weather.com'},
+  {icon:'🎵', name:'Spotify',   url:'https://open.spotify.com'},
+  {icon:'🔬', name:'arXiv',     url:'https://arxiv.org'},
+];
+
+// ============================================================
 //  INIT
 // ============================================================
 function init(){
   buildRadialMenu();
   buildKeyboard();
+  buildFavorites();
   document.getElementById('serverScriptBox').textContent =
     document.getElementById('serverScriptContent').value;
   setupSettingsSliders();
   document.getElementById('startBtn').onclick = startExperience;
+  // Aplica modo VR Box se já estava marcado
+  document.getElementById('vrBoxToggle').addEventListener('change', e => {
+    toggleVRBoxMode(e.target.checked);
+  });
 }
 
+// ============================================================
+//  MODO VR BOX (PROBLEMA 3)
+// ============================================================
+window.toggleVRBoxMode = function(enabled){
+  vrBoxMode = enabled;
+  document.body.classList.toggle('vrbox-mode', enabled);
+  document.getElementById('vrboxModeInfo').style.display = enabled ? 'block' : 'none';
+  // Sincroniza toggle na tela intro com settings
+  document.getElementById('vrBoxToggle').checked = enabled;
+  if(enabled){
+    showGestureFeedback('🥽 Modo VR Box Ativo');
+  }
+};
+
 async function startExperience(){
+  // Lê configuração do modo VR estéreo antes de iniciar
+  const startVRStereo = document.getElementById('vrStereoToggle').checked;
   document.getElementById('intro').style.opacity='0';
   document.getElementById('intro').style.transition='opacity 0.5s';
   setTimeout(()=>document.getElementById('intro').style.display='none',500);
   initThree();
+  if(startVRStereo){ toggleVRMode(); }
   createDefaultPanels();
   await initMediaPipe();
   await startCamera();
@@ -593,6 +835,7 @@ function initThree(){
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(0x000000,0);
+  renderer.autoClear = true;
 
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 100);
@@ -605,12 +848,137 @@ function initThree(){
   dirLight.position.set(2,4,3);
   scene.add(dirLight);
 
-  window.addEventListener('resize',()=>{
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth,window.innerHeight);
-  });
+  // Câmeras VR para cada olho
+  cameraL = camera.clone();
+  cameraR = camera.clone();
+
+  // RenderTarget para barrel distortion
+  vrRenderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight);
+
+  // Shader de distorção barrel (PROBLEMA 5)
+  const barrelShader = {
+    uniforms: {
+      tDiffuse: { value: null },
+      k1: { value: barrelK1 },
+      k2: { value: barrelK2 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: `
+      uniform sampler2D tDiffuse;
+      uniform float k1;
+      uniform float k2;
+      varying vec2 vUv;
+      void main() {
+        vec2 uv = vUv - 0.5;
+        float r2 = dot(uv, uv);
+        float distortion = 1.0 + k1 * r2 + k2 * r2 * r2;
+        vec2 distUv = uv * distortion + 0.5;
+        if(distUv.x < 0.0 || distUv.x > 1.0 || distUv.y < 0.0 || distUv.y > 1.0){
+          gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        } else {
+          gl_FragColor = texture2D(tDiffuse, distUv);
+        }
+      }
+    `
+  };
+
+  barrelMaterial = new THREE.ShaderMaterial(barrelShader);
+  barrelScene = new THREE.Scene();
+  barrelCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const quad = new THREE.PlaneGeometry(2, 2);
+  barrelMesh = new THREE.Mesh(quad, barrelMaterial);
+  barrelScene.add(barrelMesh);
+
+  window.addEventListener('resize', onResize);
 }
+
+function onResize(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  vrRenderTarget.setSize(window.innerWidth, window.innerHeight);
+}
+
+// ============================================================
+//  VR RENDER LOOP (PROBLEMA 5)
+// ============================================================
+function renderVR(){
+  const W = renderer.domElement.width;
+  const H = renderer.domElement.height;
+  const halfW = Math.floor(W / 2);
+
+  // Sincronizar rotação das câmeras VR com a câmera principal
+  cameraL.quaternion.copy(camera.quaternion);
+  cameraR.quaternion.copy(camera.quaternion);
+  cameraL.position.copy(camera.position);
+  cameraR.position.copy(camera.position);
+
+  // Offset horizontal de cada olho (baseado na quaternion atual)
+  const right = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
+  cameraL.position.addScaledVector(right, -VR_EYE_SEP);
+  cameraR.position.addScaledVector(right, VR_EYE_SEP);
+
+  cameraL.aspect = halfW / H;
+  cameraL.updateProjectionMatrix();
+  cameraR.aspect = halfW / H;
+  cameraR.updateProjectionMatrix();
+
+  renderer.setScissorTest(true);
+
+  // Olho esquerdo — com distorção barrel
+  renderer.setRenderTarget(vrRenderTarget);
+  renderer.setScissor(0, 0, halfW, H);
+  renderer.setViewport(0, 0, halfW, H);
+  renderer.render(scene, cameraL);
+
+  renderer.setRenderTarget(null);
+  barrelMaterial.uniforms.tDiffuse.value = vrRenderTarget.texture;
+  barrelMaterial.uniforms.k1.value = barrelK1;
+  barrelMaterial.uniforms.k2.value = barrelK2;
+  renderer.setScissor(0, 0, halfW, H);
+  renderer.setViewport(0, 0, halfW, H);
+  renderer.render(barrelScene, barrelCamera);
+
+  // Olho direito — com distorção barrel
+  renderer.setRenderTarget(vrRenderTarget);
+  renderer.setScissor(halfW, 0, halfW, H);
+  renderer.setViewport(halfW, 0, halfW, H);
+  renderer.render(scene, cameraR);
+
+  renderer.setRenderTarget(null);
+  barrelMaterial.uniforms.tDiffuse.value = vrRenderTarget.texture;
+  renderer.setScissor(halfW, 0, halfW, H);
+  renderer.setViewport(halfW, 0, halfW, H);
+  renderer.render(barrelScene, barrelCamera);
+
+  renderer.setScissorTest(false);
+}
+
+function renderMono(){
+  renderer.setScissorTest(false);
+  renderer.setRenderTarget(null);
+  renderer.setViewport(0, 0, renderer.domElement.width, renderer.domElement.height);
+  renderer.render(scene, camera);
+}
+
+// ============================================================
+//  TOGGLE VR MODE
+// ============================================================
+window.toggleVRMode = function(){
+  vrMode = !vrMode;
+  const divider = document.getElementById('vrDivider');
+  const badge = document.getElementById('vrModeBadge');
+  const btnVR = document.getElementById('btnVR');
+  divider.style.display = vrMode ? 'block' : 'none';
+  badge.classList.toggle('show', vrMode);
+  btnVR.classList.toggle('active', vrMode);
+  document.getElementById('sysVR').textContent = vrMode ? 'ON' : 'OFF';
+  showGestureFeedback(vrMode ? '🥽 VR Estéreo ON' : '👁️ Mono ON');
+  if(navigator.vibrate) navigator.vibrate(vrMode ? [30,20,30] : [20]);
+};
 
 // ============================================================
 //  3D PANELS
@@ -627,12 +995,9 @@ function createPanel3D(opts){
   const mesh = new THREE.Mesh(geo,mat);
   mesh.position.set(x,y,z);
   scene.add(mesh);
-
   const edgeGeo = new THREE.EdgesGeometry(geo);
   const edgeMat = new THREE.LineBasicMaterial({color});
-  const edges = new THREE.LineSegments(edgeGeo,edgeMat);
-  mesh.add(edges);
-
+  mesh.add(new THREE.LineSegments(edgeGeo,edgeMat));
   const panel = {mesh,canvas,ctx,tex,title,id:id||Date.now(),w,h,color};
   panels3D.push(panel);
   return panel;
@@ -642,20 +1007,17 @@ function drawPanelContent(ctx,title,w,h,color){
   const W=ctx.canvas.width, H=ctx.canvas.height;
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle = darkTheme?'rgba(18,18,30,0.92)':'rgba(240,240,248,0.92)';
-  ctx.beginPath();
-  ctx.roundRect(4,4,W-8,H-8,16);
-  ctx.fill();
+  ctx.beginPath(); ctx.roundRect(4,4,W-8,H-8,16); ctx.fill();
   const r=parseInt('0x'+color.toString(16).padStart(6,'0').slice(0,2),16);
   const g=parseInt('0x'+color.toString(16).padStart(6,'0').slice(2,4),16);
   const b=parseInt('0x'+color.toString(16).padStart(6,'0').slice(4,6),16);
   ctx.fillStyle=`rgba(${r},${g},${b},0.3)`;
   ctx.beginPath(); ctx.roundRect(4,4,W-8,36,{upperLeft:12,upperRight:12,lowerLeft:0,lowerRight:0}); ctx.fill();
   ctx.fillStyle=darkTheme?'#e0e0ff':'#1a1a2e';
-  ctx.font='bold 20px system-ui';
-  ctx.fillText(title,16,30);
+  ctx.font='bold 20px system-ui'; ctx.fillText(title,16,30);
   ctx.fillStyle=darkTheme?'rgba(144,144,187,0.5)':'rgba(80,80,170,0.5)';
   ctx.font='14px system-ui';
-  ctx.fillText('NGS VR Workspace v0.3',16,60);
+  ctx.fillText('NGS VR Workspace v0.4',16,60);
 }
 
 function createDefaultPanels(){
@@ -676,11 +1038,8 @@ function createPCPanel(){
   pcScreenPanel = new THREE.Mesh(geo,mat);
   pcScreenPanel.position.set(0,0.4,-3.2);
   const edgeGeo = new THREE.EdgesGeometry(geo);
-  const edgeMat = new THREE.LineBasicMaterial({color:0x7c3aed});
-  pcScreenPanel.add(new THREE.LineSegments(edgeGeo,edgeMat));
+  pcScreenPanel.add(new THREE.LineSegments(edgeGeo,new THREE.LineBasicMaterial({color:0x7c3aed})));
   scene.add(pcScreenPanel);
-
-  // Title label
   const tCanvas = document.createElement('canvas');
   tCanvas.width=400; tCanvas.height=48;
   const tCtx = tCanvas.getContext('2d');
@@ -689,37 +1048,26 @@ function createPCPanel(){
   tCtx.fillStyle='#fff'; tCtx.font='bold 22px system-ui';
   tCtx.fillText('🖥️ TELA DO PC',12,32);
   const tTex = new THREE.CanvasTexture(tCanvas);
-  const tGeo = new THREE.PlaneGeometry(2.4,0.14);
-  const tMat = new THREE.MeshStandardMaterial({map:tTex,transparent:true});
-  const tMesh = new THREE.Mesh(tGeo,tMat);
+  const tMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.4,0.14), new THREE.MeshStandardMaterial({map:tTex,transparent:true}));
   tMesh.position.set(0,0.4+0.7+0.07,0.001);
   pcScreenPanel.add(tMesh);
 }
 
 function drawPCPanelOffline(ctx){
   const W=ctx.canvas.width, H=ctx.canvas.height;
-  ctx.fillStyle='#0a0a12';
-  ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='rgba(124,58,237,0.15)';
-  ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='#7c3aed';
-  ctx.font='bold 32px system-ui';
-  ctx.textAlign='center';
+  ctx.fillStyle='#0a0a12'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(124,58,237,0.15)'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#7c3aed'; ctx.font='bold 32px system-ui'; ctx.textAlign='center';
   ctx.fillText('🖥️ Tela do PC',W/2,H/2-40);
-  ctx.fillStyle='#9090bb';
-  ctx.font='18px system-ui';
-  ctx.fillText('Desconectado',W/2,H/2);
-  ctx.fillStyle='#5050aa';
-  ctx.font='14px system-ui';
+  ctx.fillStyle='#9090bb'; ctx.font='18px system-ui'; ctx.fillText('Desconectado',W/2,H/2);
+  ctx.fillStyle='#5050aa'; ctx.font='14px system-ui';
   ctx.fillText('Vá em Menu → 🖥️ PC para configurar',W/2,H/2+36);
-  ctx.fillText('Execute ngs_vr_server.py no seu computador',W/2,H/2+60);
+  ctx.fillText('Abra no celular: http://[IP]:8080',W/2,H/2+60);
   ctx.textAlign='left';
 }
 
 function updatePanelTextures(){
-  panels3D.forEach(p=>{
-    if(p.ctx && p.canvas && p.tex) p.tex.needsUpdate=true;
-  });
+  panels3D.forEach(p=>{ if(p.ctx&&p.canvas&&p.tex) p.tex.needsUpdate=true; });
 }
 
 // ============================================================
@@ -728,8 +1076,7 @@ function updatePanelTextures(){
 async function startCamera(){
   try{
     const stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},
-      audio:false
+      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false
     });
     cameraStream = stream;
     const vid = document.getElementById('cameraFeed');
@@ -770,7 +1117,7 @@ function startHandTracking(){
   const vid = document.getElementById('cameraFeed');
   let lastVideoTime = -1;
   function detect(){
-    if(!handLandmarker||!vid.videoWidth) { requestAnimationFrame(detect); return; }
+    if(!handLandmarker||!vid.videoWidth){ requestAnimationFrame(detect); return; }
     const now = performance.now();
     if(vid.currentTime !== lastVideoTime){
       lastVideoTime = vid.currentTime;
@@ -789,64 +1136,51 @@ function processHandResults(result){
   if(!result||!result.landmarks) return;
   const count = result.landmarks.length;
   document.getElementById('sysHands').textContent = count;
-
   for(let i=0;i<result.landmarks.length;i++){
     const lm = result.landmarks[i];
     const hand = result.handedness[i][0].categoryName.toLowerCase();
-    // Mirror: MediaPipe left/right is from selfie view, invert for rear camera
-    const side = (hand==='left')?'right':'left';
+    const side = (hand==='left')?'right':'left'; // espelha câmera traseira
     handsData[side] = lm;
   }
-
   updateHandCursors();
   detectGestures();
   handleMenuFingerSelection();
   handleKeyboardFingerSelection();
+  if(vrBoxMode) handleVRBoxPanelClose();
   if(pcConnected) handlePCControl();
 }
 
 function dist2D(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
 function dist3D(a,b){ return Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z); }
 
-function isPinching(lm){
-  if(!lm) return false;
-  return dist3D(lm[4],lm[8]) < 0.055;
-}
+function isPinching(lm){ return lm ? dist3D(lm[4],lm[8])<0.055 : false; }
 function isOpenHand(lm){
   if(!lm) return false;
-  const fingertips=[8,12,16,20], bases=[6,10,14,18];
+  const ft=[8,12,16,20], bases=[6,10,14,18];
   let ext=0;
-  for(let i=0;i<4;i++){
-    if(lm[fingertips[i]].y < lm[bases[i]].y) ext++;
-  }
+  for(let i=0;i<4;i++) if(lm[ft[i]].y<lm[bases[i]].y) ext++;
   return ext>=3;
 }
 function isFist(lm){
   if(!lm) return false;
-  const fingertips=[8,12,16,20], bases=[6,10,14,18];
+  const ft=[8,12,16,20], bases=[6,10,14,18];
   let closed=0;
-  for(let i=0;i<4;i++){
-    if(lm[fingertips[i]].y > lm[bases[i]].y) closed++;
-  }
+  for(let i=0;i<4;i++) if(lm[ft[i]].y>lm[bases[i]].y) closed++;
   return closed>=3;
 }
 function isVictory(lm){
   if(!lm) return false;
-  const idx8y=lm[8].y, mid12y=lm[12].y, ring16y=lm[16].y, pinky20y=lm[20].y;
-  const idx6y=lm[6].y, mid10y=lm[10].y, ring14y=lm[14].y, pinky18y=lm[18].y;
-  return idx8y<idx6y && mid12y<mid10y && ring16y>ring14y && pinky20y>pinky18y;
+  return lm[8].y<lm[6].y && lm[12].y<lm[10].y && lm[16].y>lm[14].y && lm[20].y>lm[18].y;
 }
 function isThumbUp(lm){
   if(!lm) return false;
-  return lm[4].y < lm[3].y && lm[8].y > lm[6].y && lm[12].y > lm[10].y &&
-         lm[16].y > lm[14].y && lm[20].y > lm[18].y;
+  return lm[4].y<lm[3].y && lm[8].y>lm[6].y && lm[12].y>lm[10].y && lm[16].y>lm[14].y && lm[20].y>lm[18].y;
 }
 
 function gestureDebounced(name, fn, delay=400){
   const now = Date.now();
   if(!gestureDebounce[name]||now-gestureDebounce[name]>delay){
-    gestureDebounce[name]=now;
-    fn();
+    gestureDebounce[name]=now; fn();
   }
 }
 
@@ -857,9 +1191,9 @@ function detectGestures(){
   const L = handsData.left, R = handsData.right;
   const rPinch = isPinching(R), lPinch = isPinching(L);
   const rOpen = isOpenHand(R), lOpen = isOpenHand(L);
-  const rFist = isFist(R), lFist = isFist(L);
+  const rFist = isFist(R);
 
-  // ---- Open hand → open menu (right hand, 0.4s hold)
+  // ---- Mão aberta → abrir menu (mão direita, 0.4s hold)
   if(rOpen && !radialMenuOpen){
     if(!openHandTimer){
       openHandTimer = setTimeout(()=>{
@@ -873,14 +1207,12 @@ function detectGestures(){
     }
   } else if(!rOpen){ clearTimeout(openHandTimer); openHandTimer=null; }
 
-  // ---- Victory gesture → toggle passthrough
+  // ---- Victory → toggle passthrough
   if(isVictory(R)||isVictory(L)){
-    gestureDebounced('victory',()=>{
-      togglePassthrough();
-    },600);
+    gestureDebounced('victory',()=>{ togglePassthrough(); },600);
   }
 
-  // ---- Thumb up → calibrate/center
+  // ---- Polegar cima → calibrar
   if(isThumbUp(R)){
     gestureDebounced('thumbup',()=>{
       calibrateGyro();
@@ -888,7 +1220,7 @@ function detectGestures(){
     },600);
   }
 
-  // ---- Right fist for 1.5s → recalibrate
+  // ---- Punho direito por 1.5s → recalibrar giroscópio
   if(rFist){
     if(!rightFistTimer){
       rightFistTimer = setTimeout(()=>{
@@ -901,23 +1233,70 @@ function detectGestures(){
     }
   } else { clearTimeout(rightFistTimer); rightFistTimer=null; hideProgressRing(); }
 
-  // ---- Left open hand moving vertically → scroll (PC)
+  // ---- Mão esquerda aberta + mover verticalmente → scroll (PC)
   if(pcConnected && lOpen && L){
     const lPalmY = L[9].y;
     if(typeof window._prevLPalmY === 'number'){
       const dy = (window._prevLPalmY - lPalmY)*20;
-      if(Math.abs(dy)>0.5){
-        throttledSend({type:'scroll', dy: Math.round(dy)});
-      }
+      if(Math.abs(dy)>0.5) throttledSend({type:'scroll', dy: Math.round(dy)});
     }
     window._prevLPalmY = lPalmY;
   } else { window._prevLPalmY = undefined; }
 
-  // Update pinch state
+  // ---- Dois indicadores juntos (0.5s) → toggle VR estéreo (PROBLEMA 5)
+  if(L && R && L[8] && R[8]){
+    const dIdx = dist3D(L[8], R[8]);
+    if(dIdx < 0.1){
+      if(!dualIndexTimer && !dualIndexActive){
+        dualIndexTimer = setTimeout(()=>{
+          toggleVRMode();
+          dualIndexActive = true;
+          dualIndexTimer = null;
+          if(navigator.vibrate) navigator.vibrate([30,20,30]);
+        },500);
+      }
+    } else {
+      clearTimeout(dualIndexTimer); dualIndexTimer=null; dualIndexActive=false;
+    }
+  } else {
+    clearTimeout(dualIndexTimer); dualIndexTimer=null; dualIndexActive=false;
+  }
+
+  // Atualiza estado pinch
   rightPinchPrev = rightPinching;
   leftPinchPrev = leftPinching;
   rightPinching = rPinch;
   leftPinching = lPinch;
+}
+
+// ============================================================
+//  VR BOX: fechar painel com mão aberta fora (PROBLEMA 3)
+// ============================================================
+function handleVRBoxPanelClose(){
+  const R = handsData.right;
+  const rOpen = isOpenHand(R);
+  if(!rOpen){ clearTimeout(openHandOutsidePanelTimer); openHandOutsidePanelTimer=null; return; }
+  // Verificar se existe algum painel aberto
+  const openPanel = document.querySelector('.panel-overlay:not(.hidden)');
+  if(!openPanel){ clearTimeout(openHandOutsidePanelTimer); openHandOutsidePanelTimer=null; return; }
+  // Verificar se o cursor está fora do painel
+  if(R && R[8]){
+    const fx = R[8].x * window.innerWidth;
+    const fy = R[8].y * window.innerHeight;
+    const rect = openPanel.getBoundingClientRect();
+    const isInside = fx>=rect.left && fx<=rect.right && fy>=rect.top && fy<=rect.bottom;
+    if(!isInside){
+      if(!openHandOutsidePanelTimer){
+        openHandOutsidePanelTimer = setTimeout(()=>{
+          openPanel.classList.add('hidden');
+          showGestureFeedback('❌ Painel Fechado');
+          openHandOutsidePanelTimer=null;
+        },400);
+      }
+    } else {
+      clearTimeout(openHandOutsidePanelTimer); openHandOutsidePanelTimer=null;
+    }
+  }
 }
 
 // ============================================================
@@ -927,20 +1306,34 @@ function updateHandCursors(){
   const L = handsData.left, R = handsData.right;
   const curL = document.getElementById('fingerCursorL');
   const curR = document.getElementById('fingerCursorR');
+  const curLR = document.getElementById('fingerCursorLR');
+  const curRR = document.getElementById('fingerCursorRR');
+
   if(L&&L[8]){
     curL.style.display='block';
-    curL.style.left = (L[8].x*window.innerWidth)+'px';
-    curL.style.top = (L[8].y*window.innerHeight)+'px';
-  } else { curL.style.display='none'; }
+    curL.style.left=(L[8].x*window.innerWidth)+'px';
+    curL.style.top=(L[8].y*window.innerHeight)+'px';
+    if(vrMode){
+      curLR.style.display='block';
+      curLR.style.left=(L[8].x*window.innerWidth/2+window.innerWidth/2)+'px';
+      curLR.style.top=(L[8].y*window.innerHeight)+'px';
+    } else { curLR.style.display='none'; }
+  } else { curL.style.display='none'; curLR.style.display='none'; }
+
   if(R&&R[8]){
     curR.style.display='block';
-    curR.style.left = (R[8].x*window.innerWidth)+'px';
-    curR.style.top = (R[8].y*window.innerHeight)+'px';
-  } else { curR.style.display='none'; }
+    curR.style.left=(R[8].x*window.innerWidth)+'px';
+    curR.style.top=(R[8].y*window.innerHeight)+'px';
+    if(vrMode){
+      curRR.style.display='block';
+      curRR.style.left=(R[8].x*window.innerWidth/2+window.innerWidth/2)+'px';
+      curRR.style.top=(R[8].y*window.innerHeight)+'px';
+    } else { curRR.style.display='none'; }
+  } else { curR.style.display='none'; curRR.style.display='none'; }
 }
 
 // ============================================================
-//  RADIAL MENU - FINGER SELECTION
+//  RADIAL MENU - FINGER SELECTION (somente por gesto)
 // ============================================================
 function handleMenuFingerSelection(){
   if(!radialMenuOpen) return;
@@ -961,7 +1354,7 @@ function handleMenuFingerSelection(){
           el._pinchFired=true;
           el.classList.add('active-pinch');
           setTimeout(()=>el.classList.remove('active-pinch'),200);
-          el.click();
+          el._action && el._action();
           closeRadialMenu();
           if(navigator.vibrate) navigator.vibrate([20]);
         }
@@ -1016,14 +1409,10 @@ function handlePCControl(){
   if(!R||!R[8]) return;
   const x = R[8].x, y = R[8].y;
   throttledSend({type:'mouse_move', x, y});
-
   if(rightPinching && !rightPinchPrev){
     const now=Date.now();
-    if(now-lastPinchTime<300){
-      sendPC({type:'mouse_click', button:'right'});
-    } else {
-      sendPC({type:'mouse_click', button:'left'});
-    }
+    if(now-lastPinchTime<300){ sendPC({type:'mouse_click', button:'right'}); }
+    else { sendPC({type:'mouse_click', button:'left'}); }
     lastPinchTime=now;
   }
 }
@@ -1041,41 +1430,100 @@ function sendPC(msg){
 }
 
 // ============================================================
-//  PC WEBSOCKET CONNECTION
+//  PC WEBSOCKET CONNECTION (PROBLEMA 1 - diagnóstico detalhado)
 // ============================================================
 window.togglePCConnection = function(){
   if(pcConnected){ disconnectPC(); }
   else { connectPC(); }
 };
 
+// Teste de conectividade HTTP antes do WebSocket (PROBLEMA 1)
+window.testHTTPConnection = function(){
+  const ip = document.getElementById('pcIpInput').value.trim();
+  if(!ip){ showDiag('❌ Digite o IP do computador primeiro'); return; }
+  showDiag('🔍 Testando conexão HTTP com '+ip+':8080...');
+  fetch(`http://${ip}:8080`, {mode:'no-cors', signal:AbortSignal.timeout(3000)})
+    .then(()=>{
+      showDiag('✅ Servidor HTTP acessível em http://'+ip+':8080\n' +
+               '💡 Abra esta página via servidor Python para evitar Mixed Content:\n' +
+               '   http://'+ip+':8080\n' +
+               '   Depois tente conectar o WebSocket');
+    })
+    .catch(e=>{
+      showDiag('❌ Servidor HTTP inacessível: '+e.message+'\n\n' +
+               '1. Verifique se o Python server está rodando no PC\n' +
+               '2. Execute no PC: py .\\ngs_vr_server.py\n' +
+               '3. Se necessário, libere as portas somente no perfil privado do Firewall:\n' +
+               '   netsh advfirewall firewall add rule name="NGS VR WS" dir=in action=allow protocol=TCP localport=9001 profile=private\n' +
+               '   netsh advfirewall firewall add rule name="NGS VR HTTP" dir=in action=allow protocol=TCP localport=8080 profile=private\n' +
+               '4. Certifique-se que celular e PC estão na mesma rede Wi-Fi');
+    });
+};
+
+function showDiag(msg){
+  const box = document.getElementById('diagBox');
+  box.style.display='block';
+  box.textContent = msg;
+}
+
 function connectPC(){
   const ip = document.getElementById('pcIpInput').value.trim();
   const port = document.getElementById('pcPortInput').value.trim()||'9001';
-  if(!ip){ alert('Digite o IP do computador'); return; }
+  const token = document.getElementById('pcTokenInput').value.trim();
+  if(!ip){ showDiag('❌ Digite o IP do computador'); return; }
+  if(!token){ showDiag('❌ Digite o token exibido no terminal do servidor'); return; }
+
+  // Atualizar dica de HTTP no painel
+  document.getElementById('httpHint').textContent = `http://${ip}:8080`;
+
   const url = `ws://${ip}:${port}`;
   updateConnStatus('connecting');
+  showDiag('🔄 Conectando a '+url+'...\n\n' +
+           '⚠️ Se falhar com Mixed Content:\n' +
+           '   Abra no celular via: http://'+ip+':8080\n' +
+           '   (Não via file:// ou https://)');
   try{
     pcWebSocket = new WebSocket(url);
     pcWebSocket.binaryType='blob';
     pcWebSocket.onopen=()=>{
-      pcConnected=true;
-      updateConnStatus('connected');
-      document.getElementById('connectBtn').textContent='Desconectar';
-      showGestureFeedback('🖥️ PC Conectado!');
-      if(navigator.vibrate) navigator.vibrate([20,10,20]);
-      startPing();
+      showDiag('🔐 Enviando token de acesso para '+url+'...');
+      pcWebSocket.send(JSON.stringify({type:'auth', token}));
     };
-    pcWebSocket.onclose=()=>{
+    pcWebSocket.onclose=(ev)=>{
       pcConnected=false;
       updateConnStatus('disconnected');
       document.getElementById('connectBtn').textContent='Conectar';
       drawPCPanelOffline(pcScreenCtx);
-      pcScreenTexture.needsUpdate=true;
+      if(pcScreenTexture) pcScreenTexture.needsUpdate=true;
       stopPing();
+      let reason = '';
+      if(ev.code===1006) reason='Conexão perdida abruptamente (verifique se o servidor Python ainda está rodando)';
+      else if(ev.code===1008) reason='Token incorreto ou autenticação não realizada';
+      else if(ev.code===1000) reason='Encerrado normalmente';
+      else reason='Código: '+ev.code+' '+ev.reason;
+      showDiag('🔌 Desconectado: '+reason);
     };
-    pcWebSocket.onerror=()=>{ updateConnStatus('disconnected'); };
+    pcWebSocket.onerror=(ev)=>{
+      updateConnStatus('disconnected');
+      let diagMsg = '❌ Erro de conexão WebSocket\n\n';
+      diagMsg += 'URL tentada: '+url+'\n\n';
+      diagMsg += 'Causas comuns:\n';
+      diagMsg += '• Mixed Content: página aberta via file:// ou https://\n';
+      diagMsg += '  → Solução: Abra via http://'+ip+':8080 no celular\n';
+      diagMsg += '• Servidor não está rodando\n';
+      diagMsg += '  → Execute: py .\\ngs_vr_server.py no PC\n';
+      diagMsg += '• Firewall bloqueando\n';
+      diagMsg += '  → Execute (PowerShell Admin):\n';
+      diagMsg += '    netsh advfirewall firewall add rule name="NGS VR WS" dir=in action=allow protocol=TCP localport=9001 profile=private\n';
+      diagMsg += '• IP incorreto (verifique: ipconfig no PC)\n';
+      diagMsg += '• Dispositivos em redes Wi-Fi diferentes\n';
+      showDiag(diagMsg);
+    };
     pcWebSocket.onmessage=handlePCMessage;
-  }catch(e){ updateConnStatus('disconnected'); console.error(e); }
+  }catch(e){
+    updateConnStatus('disconnected');
+    showDiag('❌ Exceção ao criar WebSocket:\n'+e.message+'\n\nAbra a página via servidor HTTP: http://'+ip+':8080');
+  }
 }
 
 function disconnectPC(){
@@ -1086,16 +1534,25 @@ function disconnectPC(){
 }
 
 function handlePCMessage(evt){
-  if(evt.data instanceof Blob){
-    evt.data.text().then(txt=>processMsg(JSON.parse(txt)));
-  } else {
-    try{ processMsg(JSON.parse(evt.data)); }catch(e){}
-  }
+  if(evt.data instanceof Blob){ evt.data.text().then(txt=>processMsg(JSON.parse(txt))); }
+  else { try{ processMsg(JSON.parse(evt.data)); }catch(e){} }
 }
 
 const _frameImg = new Image();
 function processMsg(msg){
-  if(msg.type==='frame'){
+  if(msg.type==='auth_ok'){
+    pcConnected=true;
+    updateConnStatus('connected');
+    document.getElementById('connectBtn').textContent='Desconectar';
+    showGestureFeedback('🖥️ PC Conectado!');
+    showDiag('✅ Autenticado e conectado a '+pcWebSocket.url);
+    if(navigator.vibrate) navigator.vibrate([20,10,20]);
+    startPing();
+    const fps = parseInt(document.getElementById('streamFps').value)||15;
+    sendPC({type:'set_fps', fps});
+  } else if(msg.type==='auth_error'){
+    showDiag('❌ Token de acesso inválido. Confira o token no terminal do PC.');
+  } else if(msg.type==='frame'){
     _frameImg.onload=()=>{
       pcScreenCtx.drawImage(_frameImg,0,0,pcScreenCanvas.width,pcScreenCanvas.height);
       pcScreenTexture.needsUpdate=true;
@@ -1114,7 +1571,7 @@ function startPing(){
   pingInterval=setInterval(()=>{
     if(pcWebSocket&&pcWebSocket.readyState===WebSocket.OPEN){
       pingSentAt=Date.now();
-      pcWebSocket.send(JSON.stringify({type:'ping'}));
+      pcWebSocket.send(JSON.stringify({type:'ping',ts:pingSentAt}));
     }
   },2000);
 }
@@ -1140,7 +1597,7 @@ function updateConnStatus(state){
 }
 
 // ============================================================
-//  GYROSCOPE
+//  GYROSCOPE - CORRIGIDO (PROBLEMA 2)
 // ============================================================
 function initGyroscope(){
   if(typeof DeviceOrientationEvent === 'undefined'){ console.warn('No gyro'); return; }
@@ -1155,38 +1612,69 @@ function registerGyro(){
   window.addEventListener('deviceorientation', onGyro, true);
   gyroEnabled=true;
   document.getElementById('sysGyro').textContent='ON';
-  console.log('Gyroscope enabled');
+  console.log('Giroscópio habilitado');
 }
 
+// GIROSCÓPIO CORRIGIDO: usar deltas de ângulos em relação à posição de calibração
 function onGyro(evt){
-  if(!evt.alpha&&!evt.beta&&!evt.gamma) return;
-  const {alpha=0, beta=0, gamma=0} = evt;
+  if(!evt.alpha && !evt.beta && !evt.gamma) return;
+  lastGyroEvent = evt;
+
+  // Atualiza display de orientação
   document.getElementById('sysOrientation').textContent=
-    `α${alpha.toFixed(0)}°β${beta.toFixed(0)}°`;
-  if(!gyroCalibrated){ calibrateGyro(); }
-  const da = Math.abs(alpha-lastGyroAngles.alpha);
-  const db = Math.abs(beta-lastGyroAngles.beta);
-  const dg = Math.abs(gamma-lastGyroAngles.gamma);
-  const maxD = Math.max(da,db,dg);
-  if(maxD < gyroDeadzone) return; // deadzone
-  lastGyroAngles={alpha,beta,gamma};
+    `α${(evt.alpha||0).toFixed(0)}°β${(evt.beta||0).toFixed(0)}°`;
+
+  // Calibração automática na primeira leitura
+  if(!gyroCalibrated){
+    refAlpha = evt.alpha || 0;
+    refBeta  = evt.beta  || 0;
+    refGamma = evt.gamma || 0;
+    gyroCalibrated = true;
+    return;
+  }
+
+  // Calcular delta em relação à posição de calibração
+  let dAlpha = (evt.alpha || 0) - refAlpha;
+  let dBeta  = (evt.beta  || 0) - refBeta;
+  let dGamma = (evt.gamma || 0) - refGamma;
+
+  // Normalizar alpha para evitar saltos 360→0
+  if(dAlpha > 180)  dAlpha -= 360;
+  if(dAlpha < -180) dAlpha += 360;
+
+  // Deadzone
+  if(Math.abs(dAlpha) < gyroDeadzone && Math.abs(dBeta) < gyroDeadzone && Math.abs(dGamma) < gyroDeadzone) return;
+
+  // Para telefone no VR box (orientação paisagem com lentes)
+  // beta  = inclinação frente/trás  → pitch (cima/baixo)
+  // alpha = rotação bússola         → yaw   (esquerda/direita)
+  // gamma = inclinação lateral      → roll
   const euler = new THREE.Euler(
-    beta*DEG2RAD, alpha*DEG2RAD, -gamma*DEG2RAD, 'YXZ'
+    THREE.MathUtils.degToRad(-dBeta),   // pitch
+    THREE.MathUtils.degToRad(-dAlpha),  // yaw
+    THREE.MathUtils.degToRad(dGamma),   // roll
+    'YXZ'
   );
-  const rawQ = new THREE.Quaternion().setFromEuler(euler);
-  targetQuat.multiplyQuaternions(baseQuaternion.clone().invert(), rawQ);
-  // Adaptive smooth: faster when delta is large
-  const adaptSmooth = maxD > 10 ? gyroSmoothFactor*3 : gyroSmoothFactor;
-  currentQuat.slerp(targetQuat, Math.min(adaptSmooth,1));
+
+  targetQuat.setFromEuler(euler);
+
+  // Smooth adaptativo: mais rápido em movimentos grandes
+  const delta = Math.max(Math.abs(dAlpha), Math.abs(dBeta), Math.abs(dGamma));
+  const smooth = delta > 15 ? Math.min(gyroSmoothFactor*4, 0.4) : gyroSmoothFactor;
+  camera.quaternion.slerp(targetQuat, smooth);
 }
 
+// CALIBRAR: salvar ângulos atuais como referência e resetar câmera
 window.calibrateGyro = function(){
-  baseQuaternion.copy(currentQuat.clone().invert().multiply(new THREE.Quaternion()));
-  currentQuat.set(0,0,0,1);
-  targetQuat.set(0,0,0,1);
+  if(lastGyroEvent){
+    refAlpha = lastGyroEvent.alpha || 0;
+    refBeta  = lastGyroEvent.beta  || 0;
+    refGamma = lastGyroEvent.gamma || 0;
+  }
   camera.quaternion.set(0,0,0,1);
-  gyroCalibrated=true;
-  showGestureFeedback('🎯 Giroscópio Calibrado');
+  targetQuat.set(0,0,0,1);
+  gyroCalibrated = true;
+  showGestureFeedback('🎯 Calibrado!');
   if(navigator.vibrate) navigator.vibrate([30]);
 };
 
@@ -1194,16 +1682,13 @@ window.calibrateGyro = function(){
 //  GYROSCOPE INERTIA UPDATE
 // ============================================================
 function updateCamera(){
-  // Inertia: slowly continue drifting toward target
-  currentQuat.slerp(targetQuat, gyroSmoothFactor);
-  camera.quaternion.slerp(currentQuat, 0.5);
-  // Apply inertia: very slowly return to identity when no input
+  // Inércia suave
   const idleQ = new THREE.Quaternion();
   camera.quaternion.slerp(idleQ, (1-gyroInertiaFactor)*0.01);
 }
 
 // ============================================================
-//  RADIAL MENU
+//  RADIAL MENU - BUILD (sem onclick inline, somente gesto)
 // ============================================================
 function buildRadialMenu(){
   const center = document.getElementById('radialCenter');
@@ -1220,7 +1705,10 @@ function buildRadialMenu(){
     el.innerHTML=`<span class="icon">${item.icon}</span><span>${item.label}</span>`;
     el.style.left=(120+x-40)+'px';
     el.style.top=(120+y-40)+'px';
-    el.onclick=()=>{ item.action(); closeRadialMenu(); };
+    // Guardar referência da ação no elemento (sem onclick em modo VR Box)
+    el._action = item.action;
+    // Em modo não-VR Box, onclick ainda funciona para facilitar uso na tela
+    el.onclick=()=>{ if(!vrBoxMode){ item.action(); closeRadialMenu(); } };
     center.appendChild(el);
   });
 }
@@ -1230,12 +1718,13 @@ window.toggleRadialMenu = function(){
   document.getElementById('radialMenu').classList.toggle('open',radialMenuOpen);
   document.getElementById('btnMenu').classList.toggle('active',radialMenuOpen);
 };
-window.closeRadialMenu = function(){ radialMenuOpen=false; document.getElementById('radialMenu').classList.remove('open'); document.getElementById('btnMenu').classList.remove('active'); };
+window.closeRadialMenu = function(){
+  radialMenuOpen=false;
+  document.getElementById('radialMenu').classList.remove('open');
+  document.getElementById('btnMenu').classList.remove('active');
+};
 
-function openPanelManager(){
-  // Open workspace panel - toggle between available panels
-  openPanel('connectionPanel');
-}
+function openPanelManager(){ openPanel('connectionPanel'); }
 
 // ============================================================
 //  OVERLAY PANELS
@@ -1260,13 +1749,10 @@ function buildKeyboard(){
       const el=document.createElement('div');
       el.className='kb-key';
       if(key==='⌫'||key==='↵'||key==='⇧') el.classList.add('wide');
-      if(key===' ') el.classList.add('space');
-      el.textContent=key;
-      el.dataset.key=key;
+      el.textContent=key; el.dataset.key=key;
       el.onclick=()=>typeKey(key);
       container.appendChild(el);
     });
-    // Add space bar in last row
     if(ri===3){
       const sp=document.createElement('div');
       sp.className='kb-key space'; sp.textContent='Espaço'; sp.dataset.key=' ';
@@ -1284,9 +1770,8 @@ function typeKey(key){
     else if(key==='⇧') sendPC({type:'key',key:'shift'});
     else sendPC({type:'type',text:key});
   }
-  // Also type into focused element
   const active = document.activeElement;
-  if(active && (active.tagName==='INPUT'||active.tagName==='TEXTAREA')){
+  if(active&&(active.tagName==='INPUT'||active.tagName==='TEXTAREA')){
     if(key==='⌫') active.value=active.value.slice(0,-1);
     else if(key==='↵') active.value+='\n';
     else active.value+=key;
@@ -1298,13 +1783,70 @@ window.toggleKeyboard = function(){
 };
 
 // ============================================================
+//  BROWSER - FAVORITOS (PROBLEMA 4)
+// ============================================================
+function buildFavorites(){
+  const grid = document.getElementById('favGrid');
+  grid.innerHTML='';
+  FAVORITES.forEach(fav=>{
+    const el = document.createElement('div');
+    el.className='fav-item';
+    el.innerHTML=`<span class="fav-icon">${fav.icon}</span><span class="fav-name">${fav.name}</span>`;
+    el.onclick=()=>window.open(fav.url, '_blank');
+    grid.appendChild(el);
+  });
+  // Adicionar seleção por gesto
+  grid.querySelectorAll('.fav-item').forEach((el,i)=>{
+    el._favUrl = FAVORITES[i].url;
+    el._action = ()=>window.open(FAVORITES[i].url, '_blank');
+  });
+}
+
+window.openBrowserUrl = function(){
+  const url = document.getElementById('browserUrl').value.trim();
+  if(!url) return;
+  const target = url.startsWith('http')?url:'https://'+url;
+  window.open(target, '_blank');
+};
+
+// Seleção de favorito por gesto
+function handleFavFingerSelection(){
+  const bp = document.getElementById('browserPanel');
+  if(bp.classList.contains('hidden')) return;
+  const items = bp.querySelectorAll('.fav-item');
+  ['left','right'].forEach(side=>{
+    const lm = handsData[side];
+    if(!lm||!lm[8]) return;
+    const fx = lm[8].x*window.innerWidth;
+    const fy = lm[8].y*window.innerHeight;
+    const pinch = isPinching(lm);
+    items.forEach(el=>{
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left+rect.width/2, cy = rect.top+rect.height/2;
+      const d = Math.hypot(fx-cx, fy-cy);
+      if(d < 50){
+        el.classList.add('hovered');
+        if(pinch && !el._favPinchFired){
+          el._favPinchFired=true;
+          el._action && el._action();
+          if(navigator.vibrate) navigator.vibrate([20]);
+        }
+        if(!pinch) el._favPinchFired=false;
+      } else {
+        el.classList.remove('hovered');
+        if(!pinch) el._favPinchFired=false;
+      }
+    });
+  });
+}
+
+// ============================================================
 //  THEME
 // ============================================================
 window.toggleTheme = function(){
   darkTheme = !darkTheme;
   document.body.classList.toggle('light-theme',!darkTheme);
   document.getElementById('darkToggle').checked=darkTheme;
-  document.getElementById('btnTheme').querySelector('.icon').textContent=darkTheme?'🌙':'☀️';
   if(!passthroughActive) renderer.setClearColor(darkTheme?0x0a0a12:0xf0f0f8,1);
   panels3D.forEach(p=>drawPanelContent(p.ctx,p.title,p.w,p.h,p.color));
   updatePanelTextures();
@@ -1330,21 +1872,36 @@ window.toggleBottomBar = function(){
 function setupSettingsSliders(){
   const gs=document.getElementById('gyroSmooth'),gv=document.getElementById('gyroSmoothVal');
   gs.oninput=()=>{ gyroSmoothFactor=parseFloat(gs.value); gv.textContent=gs.value; };
+
   const gd=document.getElementById('gyroDeadzone'),gdv=document.getElementById('gyroDeadzoneVal');
   gd.oninput=()=>{ gyroDeadzone=parseFloat(gd.value); gdv.textContent=gd.value+'°'; };
+
   const gi=document.getElementById('gyroInertia'),giv=document.getElementById('gyroInertiaVal');
   gi.oninput=()=>{ gyroInertiaFactor=parseFloat(gi.value); giv.textContent=gi.value; };
-  const sf=document.getElementById('streamFps'),sfv=document.getElementById('streamFpsVal');
-  sf.oninput=()=>{ sfv.textContent=sf.value; };
-}
 
-// ============================================================
-//  BROWSER PANEL
-// ============================================================
-window.loadBrowserUrl = function(){
-  const url=document.getElementById('browserUrl').value;
-  document.getElementById('browserFrame').src=url;
-};
+  const sf=document.getElementById('streamFps'),sfv=document.getElementById('streamFpsVal');
+  sf.oninput=()=>{
+    sfv.textContent=sf.value;
+    if(pcConnected) sendPC({type:'set_fps', fps:parseInt(sf.value)});
+  };
+
+  // IPD slider (PROBLEMA 5)
+  const ipd=document.getElementById('ipdSlider'),ipdv=document.getElementById('ipdVal');
+  ipd.oninput=()=>{
+    const mm = parseInt(ipd.value);
+    ipdv.textContent = mm+'mm';
+    VR_EYE_SEP = (mm/1000) / 2;
+    document.getElementById('sysIPD').textContent = mm+'mm';
+  };
+
+  // Barrel K1 slider (PROBLEMA 5)
+  const bk1=document.getElementById('barrelK1'),bk1v=document.getElementById('barrelK1Val');
+  bk1.oninput=()=>{
+    barrelK1 = parseFloat(bk1.value);
+    bk1v.textContent = bk1.value;
+    if(barrelMaterial) barrelMaterial.uniforms.k1.value = barrelK1;
+  };
+}
 
 // ============================================================
 //  COPY SERVER SCRIPT
@@ -1377,6 +1934,7 @@ function showGestureFeedback(msg){
   clearTimeout(hint._timer);
   hint._timer=setTimeout(()=>hint.classList.remove('show'),2500);
 }
+window.showGestureFeedback = showGestureFeedback;
 
 // ============================================================
 //  PROGRESS RING
@@ -1399,9 +1957,7 @@ function showProgressRing(lm, duration){
   }
   requestAnimationFrame(tick);
 }
-function hideProgressRing(){
-  document.getElementById('progressRing').style.display='none';
-}
+function hideProgressRing(){ document.getElementById('progressRing').style.display='none'; }
 
 // ============================================================
 //  SYSTEM INFO UPDATE
@@ -1410,22 +1966,26 @@ setInterval(()=>{
   document.getElementById('sysFps').textContent=fps;
   document.getElementById('sysLatency').textContent=pcConnected?(wsLatency+'ms'):'-';
   document.getElementById('sysGyro').textContent=gyroEnabled?'ON':'OFF';
+  document.getElementById('sysVR').textContent=vrMode?'ON':'OFF';
 },500);
 
 // ============================================================
-//  RENDER LOOP
+//  RENDER LOOP PRINCIPAL
 // ============================================================
 function animate(){
   requestAnimationFrame(animate);
   frameCount++;
   if(gyroEnabled) updateCamera();
-  renderer.render(scene,camera);
+  handleFavFingerSelection();
+  if(vrMode) renderVR();
+  else renderMono();
 }
 
 // ============================================================
 //  BOOT
 // ============================================================
 init();
+
 </script>
 </body>
 </html>
