@@ -1,730 +1,1431 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#080812">
-<title>NGS VR Workspace 0.2</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src * ws: wss: data: blob:;">
+<title>NGS VR Workspace v0.3 · CONEXÃO PC · GESTOS COMPLETOS</title>
 <style>
-/* ========== DESIGN TOKENS ========== */
-:root {
-  --accent: #ff4fc8;
-  --accent-h: 311;
-  --accent-s: 100%;
-  --accent-l: 65%;
-  --secondary: #9b72ff;
-  --cyan: #61e7ff;
-  --bg: #080812;
-  --bg2: #0f0d1e;
-  --panel-bg: rgba(21,19,38,0.88);
-  --panel-border: rgba(155,114,255,0.35);
-  --text: #f4efff;
-  --text-dim: #a99dbd;
-  --glass: rgba(10,8,25,0.75);
-  --radius: 14px;
-  --radius-sm: 9px;
-  --shadow: 0 8px 40px rgba(0,0,0,0.6);
-  --glow: 0 0 22px var(--accent);
-  --transition: 0.22s cubic-bezier(.4,0,.2,1);
+/* ===== RESET & BASE ===== */
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0a12;--surface:#12121e;--surface2:#1a1a2e;
+  --accent:#7c3aed;--accent2:#a855f7;--text:#e0e0ff;
+  --text2:#9090bb;--border:#2a2a4a;--glow:rgba(124,58,237,0.4);
+  --ok:#22c55e;--warn:#f59e0b;--err:#ef4444;
 }
-:root[data-theme="light"] {
-  --bg: #f0eef8;
-  --bg2: #e4e0f5;
-  --panel-bg: rgba(255,255,255,0.82);
-  --panel-border: rgba(100,60,200,0.3);
-  --glass: rgba(240,238,248,0.78);
-  --text: #1a1535;
-  --text-dim: #5a4f7a;
-  --shadow: 0 8px 40px rgba(80,40,180,0.12);
+.light-theme{
+  --bg:#f0f0f8;--surface:#ffffff;--surface2:#e8e8f0;
+  --accent:#7c3aed;--accent2:#a855f7;--text:#1a1a2e;
+  --text2:#5050aa;--border:#c0c0e0;--glow:rgba(124,58,237,0.3);
 }
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;touch-action:none;}
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, Arial; transition: background var(--transition), color var(--transition); }
+/* ===== INTRO SCREEN ===== */
+#intro{position:fixed;inset:0;background:linear-gradient(135deg,#0a0a12 0%,#1a0a2e 50%,#0a1220 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px;}
+#intro .logo{font-size:3rem;text-shadow:0 0 40px var(--accent2);}
+#intro h1{font-size:1.5rem;font-weight:700;background:linear-gradient(135deg,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+#intro .sub{font-size:0.75rem;color:var(--text2);letter-spacing:2px;text-transform:uppercase;}
+#intro .badge{background:var(--accent);color:#fff;padding:4px 12px;border-radius:999px;font-size:0.7rem;font-weight:700;margin-top:4px;}
+#intro .start-btn{margin-top:24px;padding:14px 32px;background:var(--accent);border:none;border-radius:12px;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 0 32px var(--glow);transition:transform 0.2s;}
+#intro .start-btn:hover{transform:scale(1.05);}
+#intro .hint{font-size:0.75rem;color:var(--text2);text-align:center;max-width:280px;margin-top:8px;}
 
-/* ========== 3D SCENE ========== */
-#scene { position: fixed; inset: 0; z-index: 0; }
-#crosshair { position: fixed; z-index: 2; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 6px; height: 6px; border-radius: 50%; background: #fff; box-shadow: var(--glow); pointer-events: none; transition: box-shadow var(--transition); }
+/* ===== CANVAS (3D) ===== */
+#canvas3d{position:fixed;inset:0;width:100%;height:100%;}
 
-/* ========== HUD ========== */
-#hud { position: fixed; z-index: 10; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; pointer-events: none; }
-.pill { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 11px; padding: 7px 12px; font-size: 12px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: var(--shadow); line-height: 1.4; color: var(--text); transition: background var(--transition), border-color var(--transition), color var(--transition); }
-#status { max-width: 55%; }
-#handCount { white-space: nowrap; }
+/* ===== CAMERA PASSTHROUGH ===== */
+#cameraFeed{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:0;transition:opacity 0.4s;pointer-events:none;}
+#cameraFeed.active{opacity:1;}
 
-/* ========== HELP PILL ========== */
-#help { position: fixed; z-index: 2; left: 10px; bottom: 70px; max-width: 200px; pointer-events: none; font-size: 11px; line-height: 1.6; }
+/* ===== HUD ===== */
+#hud{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(10,10,18,0.7);backdrop-filter:blur(8px);z-index:100;border-bottom:1px solid var(--border);}
+.hud-info{display:flex;gap:12px;align-items:center;font-size:0.7rem;color:var(--text2);}
+.hud-badge{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:0.65rem;color:var(--text);}
+#fpsBadge{color:var(--ok);}
+#wsBadge{display:flex;align-items:center;gap:4px;}
+#wsIndicator{width:8px;height:8px;border-radius:50%;background:var(--err);transition:background 0.3s;}
+#wsIndicator.connected{background:var(--ok);}
+#wsIndicator.connecting{background:var(--warn);animation:pulse 1s infinite;}
+.hud-title{font-size:0.75rem;font-weight:700;color:var(--accent2);}
+#gestureHint{font-size:0.65rem;color:var(--warn);opacity:0;transition:opacity 0.3s;max-width:200px;text-align:center;}
+#gestureHint.show{opacity:1;}
 
-/* ========== CAMERA PREVIEW ========== */
-#cameraPreview { position: fixed; z-index: 3; right: 10px; bottom: 70px; width: 110px; height: 82px; object-fit: cover; border: 1px solid var(--panel-border); border-radius: 11px; opacity: 0.72; display: none; }
+/* ===== BOTTOM BAR ===== */
+#bottomBar{position:fixed;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;background:rgba(10,10,18,0.8);backdrop-filter:blur(8px);z-index:100;border-top:1px solid var(--border);}
+.bb-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:0.6rem;color:var(--text2);min-width:44px;user-select:none;transition:background 0.2s,border-color 0.2s;}
+.bb-btn .icon{font-size:1.1rem;}
+.bb-btn:active,.bb-btn.active{background:var(--accent);border-color:var(--accent2);color:#fff;}
 
-/* ========== BOTTOM CONTROLS ========== */
-#controls { position: fixed; z-index: 10; bottom: 10px; left: 10px; right: 10px; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; align-items: center; }
-button { border: 1px solid var(--panel-border); border-radius: var(--radius-sm); background: var(--panel-bg); color: var(--text); padding: 9px 13px; font-weight: 600; font-size: 12px; cursor: pointer; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: background var(--transition), border-color var(--transition), color var(--transition), transform 0.1s; white-space: nowrap; }
-button:active { transform: scale(0.95); }
-button.primary { background: linear-gradient(120deg, hsl(var(--accent-h),80%,45%), hsl(calc(var(--accent-h) + 30),80%,55%)); border: 0; color: #fff; }
-button.icon-btn { width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+/* ===== RADIAL MENU ===== */
+#radialMenu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:200;pointer-events:none;opacity:0;transition:opacity 0.25s;}
+#radialMenu.open{opacity:1;pointer-events:all;}
+.radial-bg{position:absolute;inset:0;background:rgba(0,0,0,0.5);}
+.radial-center{position:relative;width:240px;height:240px;}
+.radial-item{position:absolute;width:80px;height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:16px;background:var(--surface);border:2px solid var(--border);cursor:pointer;user-select:none;transition:border-color 0.2s,box-shadow 0.2s,transform 0.2s;font-size:0.6rem;color:var(--text2);}
+.radial-item .icon{font-size:1.6rem;}
+.radial-item:hover,.radial-item.hovered{border-color:var(--accent2);box-shadow:0 0 20px var(--glow);color:var(--text);transform:scale(1.1);}
+.radial-item.active-pinch{background:var(--accent);border-color:var(--accent2);color:#fff;transform:scale(1.15);}
+/* Finger cursor */
+.finger-cursor{position:fixed;width:20px;height:20px;border-radius:50%;border:3px solid;pointer-events:none;z-index:300;transform:translate(-50%,-50%);transition:left 0.05s,top 0.05s;display:none;}
+#fingerCursorL{border-color:#38bdf8;background:rgba(56,189,248,0.3);}
+#fingerCursorR{border-color:#f472b6;background:rgba(244,114,182,0.3);}
 
-/* ========== SETTINGS PANEL ========== */
-#settingsPanel {
-  position: fixed; z-index: 20; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  background: var(--panel-bg); border: 1px solid var(--panel-border);
-  border-radius: 20px; padding: 22px; width: min(340px,92vw);
-  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  box-shadow: 0 20px 80px rgba(0,0,0,0.5);
-  display: none; flex-direction: column; gap: 18px;
-  transition: background var(--transition), border-color var(--transition);
-}
-#settingsPanel.open { display: flex; }
-#settingsPanel h2 { font-size: 16px; letter-spacing: .05em; color: var(--accent); }
-.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.setting-label { font-size: 13px; color: var(--text); }
-.setting-hint { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+/* ===== PANELS OVERLAY ===== */
+.panel-overlay{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 0 40px rgba(0,0,0,0.6);z-index:400;min-width:300px;max-width:90vw;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.panel-header h3{font-size:0.9rem;font-weight:700;color:var(--text);}
+.panel-close{background:var(--err);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;}
+.panel-body{padding:16px;overflow-y:auto;flex:1;}
+.hidden{display:none!important;}
 
-/* ========== THEME TOGGLE ========== */
-.toggle-wrap { display: flex; gap: 6px; }
-.toggle-btn { padding: 7px 14px; font-size: 12px; border-radius: 8px; border: 1px solid var(--panel-border); background: var(--bg2); color: var(--text-dim); font-weight: 600; cursor: pointer; transition: all var(--transition); }
-.toggle-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* ===== GESTURE PANEL ===== */
+#gesturePanel{}
+.gesture-list{display:flex;flex-direction:column;gap:10px;}
+.gesture-item{display:flex;align-items:center;gap:12px;background:var(--surface2);border-radius:10px;padding:10px 12px;}
+.gesture-item .g-icon{font-size:1.4rem;min-width:32px;text-align:center;}
+.gesture-info{display:flex;flex-direction:column;gap:2px;}
+.gesture-name{font-size:0.8rem;font-weight:600;color:var(--text);}
+.gesture-desc{font-size:0.7rem;color:var(--text2);}
 
-/* ========== COLOR WHEEL ========== */
-#colorWheel { position: relative; width: 160px; height: 160px; margin: 0 auto; }
-#colorWheelCanvas { width: 160px; height: 160px; border-radius: 50%; cursor: crosshair; border: 2px solid var(--panel-border); }
-#colorCursor { position: absolute; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 6px #0008; pointer-events: none; transform: translate(-50%,-50%); top: 50%; left: 50%; }
-.color-presets { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.preset-dot { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.15s, border-color 0.15s; }
-.preset-dot:hover, .preset-dot.active { transform: scale(1.2); border-color: #fff; }
-#brightnessSlider { -webkit-appearance: none; appearance: none; width: 100%; height: 5px; border-radius: 3px; outline: none; cursor: pointer; background: linear-gradient(to right, #000, var(--accent), #fff); }
-#brightnessSlider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); cursor: pointer; }
-.close-btn { align-self: flex-end; background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 0; line-height: 1; }
-.close-btn:hover { color: var(--accent); }
+/* ===== CONNECTION PANEL ===== */
+#connectionPanel .field-group{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+#connectionPanel label{font-size:0.75rem;color:var(--text2);}
+#connectionPanel input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:0.85rem;width:100%;}
+#connectionPanel input:focus{outline:none;border-color:var(--accent);}
+.conn-status{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);margin-bottom:12px;font-size:0.8rem;}
+.conn-dot{width:10px;height:10px;border-radius:50%;background:var(--err);}
+.conn-dot.connected{background:var(--ok);}
+.conn-dot.connecting{background:var(--warn);animation:pulse 1s infinite;}
+.btn-primary{width:100%;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:0.85rem;font-weight:700;cursor:pointer;margin-bottom:8px;}
+.btn-secondary{width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.8rem;cursor:pointer;}
+#serverScriptBox{background:#0a0a12;border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:0.6rem;color:#a0ffa0;white-space:pre-wrap;max-height:200px;overflow-y:auto;margin-top:8px;}
+.copy-btn{padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:0.7rem;cursor:pointer;margin-top:6px;}
 
-/* ========== INTRO SCREEN ========== */
-#intro { position: fixed; z-index: 30; inset: 0; background: radial-gradient(ellipse at 50% 35%, #24143b, #080812 70%); display: grid; place-items: center; padding: 20px; }
-:root[data-theme="light"] #intro { background: radial-gradient(ellipse at 50% 35%, #d4c8f5, #f0eef8 70%); }
-#intro .card { width: min(500px,100%); border: 1px solid var(--panel-border); background: var(--panel-bg); border-radius: 22px; padding: 24px; box-shadow: 0 20px 80px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 12px; }
-#intro h1 { font-size: 26px; letter-spacing: .04em; }
-#intro p { font-size: 13px; line-height: 1.6; color: var(--text-dim); }
-.badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 7px; }
-#error { font-size: 12px; color: #ff9bca; min-height: 16px; }
+/* ===== VIRTUAL KEYBOARD ===== */
+#keyboard{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--border);z-index:500;padding:8px;display:flex;flex-direction:column;gap:4px;}
+#keyboard.hidden{display:none!important;}
+.kb-row{display:flex;gap:3px;justify-content:center;}
+.kb-key{flex:1;max-width:38px;height:38px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:0.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;transition:background 0.1s,box-shadow 0.1s;}
+.kb-key:hover,.kb-key.hovered{background:var(--accent);border-color:var(--accent2);box-shadow:0 0 12px var(--glow);}
+.kb-key.active-pinch{background:var(--accent2);transform:scale(0.9);}
+.kb-key.wide{max-width:60px;min-width:50px;}
+.kb-key.space{max-width:160px;min-width:120px;}
+#kbClose{background:var(--err);border:none;color:#fff;padding:4px 10px;border-radius:6px;font-size:0.75rem;cursor:pointer;}
 
-/* ========== GESTURE FEEDBACK ========== */
-#gestureFeedback { position: fixed; z-index: 5; left: 50%; top: 30%; transform: translateX(-50%); background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 12px; padding: 8px 18px; font-size: 13px; font-weight: 600; color: var(--accent); backdrop-filter: blur(12px); pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+/* ===== GESTURE FEEDBACK OVERLAY ===== */
+#gestureFeedback{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(124,58,237,0.9);border-radius:16px;padding:20px 32px;font-size:1.4rem;font-weight:700;color:#fff;z-index:600;pointer-events:none;opacity:0;transition:opacity 0.3s;text-align:center;}
+#gestureFeedback.show{opacity:1;}
 
-/* ========== PERF INDICATOR ========== */
-#perf { position: fixed; z-index: 2; right: 10px; top: 10px; font-size: 10px; color: var(--text-dim); pointer-events: none; }
+/* ===== PROGRESS RING ===== */
+#progressRing{position:fixed;pointer-events:none;z-index:290;display:none;}
+#progressRing svg{transform:rotate(-90deg);}
+#progressRingCircle{stroke-dasharray:100;stroke-dashoffset:100;transition:stroke-dashoffset 0.1s linear;}
 
-/* ========== PASSTHROUGH INDICATOR ========== */
-#passthroughBadge { position: fixed; z-index: 2; top: 50px; left: 50%; transform: translateX(-50%); background: rgba(97,231,255,0.15); border: 1px solid #61e7ff; border-radius: 8px; padding: 4px 12px; font-size: 11px; color: #61e7ff; display: none; pointer-events: none; }
+/* ===== SYSTEM INFO PANEL ===== */
+#sysPanel .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.info-card{background:var(--surface2);border-radius:8px;padding:10px;text-align:center;}
+.info-card .val{font-size:1.2rem;font-weight:700;color:var(--accent2);}
+.info-card .lbl{font-size:0.65rem;color:var(--text2);margin-top:2px;}
 
-/* ========== PASSTHROUGH VIDEO BG ========== */
-#passthroughVideo { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: none; opacity: 0.45; }
+/* ===== SETTINGS PANEL ===== */
+#settingsPanel .setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+#settingsPanel .setting-row:last-child{border-bottom:none;}
+#settingsPanel label{font-size:0.8rem;color:var(--text);}
+.toggle{position:relative;width:40px;height:22px;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;inset:0;background:var(--border);border-radius:11px;cursor:pointer;transition:background 0.3s;}
+.toggle input:checked+.toggle-slider{background:var(--accent);}
+.toggle-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform 0.3s;}
+.toggle input:checked+.toggle-slider:before{transform:translateX(18px);}
+.range-group{display:flex;align-items:center;gap:8px;}
+.range-group input[type=range]{width:120px;accent-color:var(--accent);}
+.color-row{display:flex;gap:6px;padding:8px 0;}
+.color-swatch{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;}
+.color-swatch.selected{border-color:#fff;box-shadow:0 0 8px rgba(255,255,255,0.5);}
 
-/* ========== MENU CIRCLE ========== */
-#radialMenu { position: fixed; z-index: 15; top: 50%; left: 50%; transform: translate(-50%,-50%); display: none; }
-#radialMenu.open { display: block; }
-.radial-item { position: absolute; width: 56px; height: 56px; border-radius: 50%; background: var(--panel-bg); border: 1.5px solid var(--panel-border); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; transform: translate(-50%,-50%); font-size: 10px; color: var(--text); backdrop-filter: blur(12px); transition: background var(--transition), border-color var(--transition), transform 0.15s; box-shadow: var(--shadow); }
-.radial-item:hover { border-color: var(--accent); background: rgba(155,114,255,0.2); transform: translate(-50%,-50%) scale(1.12); }
-.radial-icon { font-size: 18px; }
+/* ===== NOTES PANEL ===== */
+#notesPanel textarea{width:100%;height:300px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:0.85rem;resize:none;}
+#notesPanel textarea:focus{outline:none;border-color:var(--accent);}
 
-/* ========== UTILS ========== */
-.hidden { display: none !important; }
+/* ===== BROWSER PANEL ===== */
+#browserPanel .url-bar{display:flex;gap:6px;margin-bottom:8px;}
+#browserPanel .url-bar input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:0.8rem;}
+#browserPanel iframe{width:100%;height:300px;border:1px solid var(--border);border-radius:8px;}
+
+/* ===== ANIMATIONS ===== */
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+@keyframes fadeIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.9);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}
+.panel-overlay{animation:fadeIn 0.2s ease-out;}
+@keyframes ringAppear{from{opacity:0;transform:scale(0.8);}to{opacity:1;transform:scale(1);}}
 </style>
 </head>
 <body>
-<!-- PASSTHROUGH BG -->
-<video id="passthroughVideo" autoplay muted playsinline></video>
 
-<!-- 3D SCENE -->
-<div id="scene"></div>
-<div id="crosshair"></div>
+<!-- ===== INTRO SCREEN ===== -->
+<div id="intro">
+  <div class="logo">🥽</div>
+  <h1>NGS VR Workspace</h1>
+  <div class="sub">Neural Gesture System</div>
+  <div class="badge">v0.3 · CONEXÃO PC · GESTOS COMPLETOS</div>
+  <button class="start-btn" id="startBtn">🚀 Iniciar Experiência</button>
+  <div class="hint">Permite acesso à câmera e ao sensor de orientação quando solicitado</div>
+</div>
 
-<!-- HUD -->
+<!-- ===== CAMERA PASSTHROUGH ===== -->
+<video id="cameraFeed" autoplay muted playsinline></video>
+
+<!-- ===== 3D CANVAS ===== -->
+<canvas id="canvas3d"></canvas>
+
+<!-- ===== HUD ===== -->
 <div id="hud">
-  <div class="pill" id="status">NGS VR · aguardando</div>
-  <div class="pill" id="handCount">Mãos: 0/2</div>
+  <div class="hud-info">
+    <span class="hud-badge" id="fpsBadge">60 FPS</span>
+    <div class="hud-badge" id="wsBadge">
+      <div id="wsIndicator"></div>
+      <span id="wsStatusText">Desconectado</span>
+    </div>
+  </div>
+  <div class="hud-title">NGS VR v0.3</div>
+  <div id="gestureHint">👋 Aguardando gesto...</div>
 </div>
 
-<!-- PASSTHROUGH BADGE -->
-<div id="passthroughBadge">● PASSTHROUGH ATIVO</div>
-
-<!-- HELP -->
-<div id="help" class="pill">
-  Pinça: selecionar / arrastar<br>
-  2 pinças: zoom<br>
-  Mão aberta: menu
+<!-- ===== BOTTOM BAR ===== -->
+<div id="bottomBar">
+  <div class="bb-btn" id="btnPassthrough" onclick="togglePassthrough()">
+    <span class="icon">📷</span>
+    <span>Câmera</span>
+  </div>
+  <div class="bb-btn" id="btnMenu" onclick="toggleRadialMenu()">
+    <span class="icon">⚡</span>
+    <span>Menu</span>
+  </div>
+  <div class="bb-btn" id="btnCalibrate" onclick="calibrateGyro()">
+    <span class="icon">🎯</span>
+    <span>Calibrar</span>
+  </div>
+  <div class="bb-btn" id="btnTheme" onclick="toggleTheme()">
+    <span class="icon">🌙</span>
+    <span>Tema</span>
+  </div>
+  <div class="bb-btn" id="btnKeyboard" onclick="toggleKeyboard()">
+    <span class="icon">⌨️</span>
+    <span>Teclado</span>
+  </div>
 </div>
 
-<!-- GESTURE FEEDBACK -->
+<!-- ===== FINGER CURSORS ===== -->
+<div class="finger-cursor" id="fingerCursorL"></div>
+<div class="finger-cursor" id="fingerCursorR"></div>
+
+<!-- ===== PROGRESS RING ===== -->
+<div id="progressRing">
+  <svg width="60" height="60" viewBox="0 0 60 60">
+    <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(124,58,237,0.2)" stroke-width="4"/>
+    <circle id="progressRingCircle" cx="30" cy="30" r="26" fill="none" stroke="#a855f7" stroke-width="4" stroke-linecap="round"/>
+  </svg>
+</div>
+
+<!-- ===== GESTURE FEEDBACK ===== -->
 <div id="gestureFeedback"></div>
 
-<!-- CAMERA PREVIEW -->
-<video id="cameraPreview" autoplay muted playsinline></video>
-
-<!-- BOTTOM CONTROLS -->
-<div id="controls">
-  <button id="centerBtn">↺ Centralizar</button>
-  <button id="passthroughBtn">👁 Passthrough</button>
-  <button id="previewBtn">📷 Prévia</button>
-  <button id="menuBtn">☰ Menu</button>
-  <button class="icon-btn" id="settingsBtn" title="Configurações">⚙️</button>
-  <button id="fullBtn">⛶</button>
-</div>
-
-<!-- RADIAL MENU -->
+<!-- ===== RADIAL MENU ===== -->
 <div id="radialMenu">
-  <div class="radial-item" style="left:0;top:-110px" data-action="workspace"><span class="radial-icon">🖥️</span>Work</div>
-  <div class="radial-item" style="left:105px;top:-55px" data-action="lab3d"><span class="radial-icon">🔬</span>Lab 3D</div>
-  <div class="radial-item" style="left:105px;top:55px" data-action="notes"><span class="radial-icon">📝</span>Notas</div>
-  <div class="radial-item" style="left:0;top:110px" data-action="settings"><span class="radial-icon">⚙️</span>Config</div>
-  <div class="radial-item" style="left:-105px;top:55px" data-action="passthrough"><span class="radial-icon">👁</span>Pass</div>
-  <div class="radial-item" style="left:-105px;top:-55px" data-action="center"><span class="radial-icon">↺</span>Centro</div>
-  <div class="radial-item" style="left:0;top:0;width:44px;height:44px;font-size:9px" data-action="close"><span class="radial-icon">✕</span></div>
-</div>
-
-<!-- SETTINGS PANEL -->
-<div id="settingsPanel">
-  <button class="close-btn" id="closeSettings">✕</button>
-  <h2>⚙️ Configurações</h2>
-
-  <div>
-    <div class="setting-row">
-      <div>
-        <div class="setting-label">Tema</div>
-        <div class="setting-hint">Aparência geral da interface</div>
-      </div>
-      <div class="toggle-wrap">
-        <button class="toggle-btn active" id="darkBtn">🌙 Escuro</button>
-        <button class="toggle-btn" id="lightBtn">☀️ Claro</button>
-      </div>
-    </div>
-  </div>
-
-  <div>
-    <div class="setting-label" style="margin-bottom:10px">Cor de destaque</div>
-    <div id="colorWheel">
-      <canvas id="colorWheelCanvas" width="160" height="160"></canvas>
-      <div id="colorCursor"></div>
-    </div>
-  </div>
-
-  <div>
-    <div class="setting-label" style="margin-bottom:8px">Cores rápidas</div>
-    <div class="color-presets">
-      <div class="preset-dot active" style="background:#ff4fc8" data-color="#ff4fc8" title="Rosa Neon"></div>
-      <div class="preset-dot" style="background:#9b72ff" data-color="#9b72ff" title="Roxo"></div>
-      <div class="preset-dot" style="background:#61e7ff" data-color="#61e7ff" title="Ciano"></div>
-      <div class="preset-dot" style="background:#3bff9b" data-color="#3bff9b" title="Verde"></div>
-      <div class="preset-dot" style="background:#ff9b3b" data-color="#ff9b3b" title="Laranja"></div>
-      <div class="preset-dot" style="background:#ff3b3b" data-color="#ff3b3b" title="Vermelho"></div>
-      <div class="preset-dot" style="background:#3b9bff" data-color="#3b9bff" title="Azul"></div>
-      <div class="preset-dot" style="background:#ffe23b" data-color="#ffe23b" title="Amarelo"></div>
-    </div>
-  </div>
-
-  <div>
-    <div class="setting-row" style="margin-bottom:6px">
-      <div class="setting-label">Brilho da cor</div>
-      <span id="brightnessVal" style="font-size:12px;color:var(--text-dim)">65%</span>
-    </div>
-    <input type="range" id="brightnessSlider" min="30" max="85" value="65">
-  </div>
-
-  <div>
-    <div class="setting-row">
-      <div>
-        <div class="setting-label">Desempenho</div>
-        <div class="setting-hint">Ajusta qualidade × velocidade</div>
-      </div>
-      <div class="toggle-wrap">
-        <button class="toggle-btn" id="perfEco" data-perf="eco">🔋</button>
-        <button class="toggle-btn active" id="perfBal" data-perf="balanced">⚖️</button>
-        <button class="toggle-btn" id="perfHigh" data-perf="high">🚀</button>
-      </div>
-    </div>
-  </div>
-
-  <div>
-    <div class="setting-row">
-      <div>
-        <div class="setting-label">Passthrough</div>
-        <div class="setting-hint">Transparência do vídeo</div>
-      </div>
-      <input type="range" id="passthroughOpacity" min="20" max="80" value="45" style="width:100px">
-    </div>
-  </div>
-
-  <div style="text-align:center;font-size:11px;color:var(--text-dim)">NGS VR Workspace v0.2</div>
-</div>
-
-<!-- INTRO SCREEN -->
-<div id="intro">
-  <div class="card">
-    <div>
-      <h1>NGS <span style="color:var(--accent)">VR</span> Workspace</h1>
-      <span class="badge">PROTÓTIPO 0.2 · RASTREAMENTO DUAS MÃOS</span>
-    </div>
-    <p>Ambiente de realidade virtual DIY para Galaxy M55. Detecta até duas mãos pela câmera traseira e controla painéis flutuantes com gestos.</p>
-    <p><b>Posicione as mãos</b> a ~40–80 cm da câmera traseira. Autorize o acesso quando o navegador solicitar.</p>
-    <button class="primary" id="startBtn" style="width:100%;padding:14px;font-size:14px">▶ Iniciar câmera e ambiente 3D</button>
-    <p style="font-size:11px;color:var(--text-dim)">Requer HTTPS e permissão de câmera. O primeiro acesso baixa o modelo de visão computacional (~5 MB).</p>
-    <div id="error"></div>
+  <div class="radial-bg" onclick="closeRadialMenu()"></div>
+  <div class="radial-center" id="radialCenter">
+    <!-- Items positioned via JS -->
   </div>
 </div>
+
+<!-- ===== GESTURE PANEL ===== -->
+<div class="panel-overlay hidden" id="gesturePanel">
+  <div class="panel-header">
+    <h3>🤚 Guia de Gestos</h3>
+    <button class="panel-close" onclick="closePanel('gesturePanel')">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="gesture-list">
+      <div class="gesture-item"><div class="g-icon">🤚</div><div class="gesture-info"><div class="gesture-name">Mão Aberta (0.4s)</div><div class="gesture-desc">Abre o Menu Radial</div></div></div>
+      <div class="gesture-item"><div class="g-icon">✊</div><div class="gesture-info"><div class="gesture-name">Punho Fechado (1.5s, mão direita)</div><div class="gesture-desc">Recalibra a câmera / giroscópio</div></div></div>
+      <div class="gesture-item"><div class="g-icon">👌</div><div class="gesture-info"><div class="gesture-name">Pinça (polegar + indicador)</div><div class="gesture-desc">Seleciona item ou arrasta painel</div></div></div>
+      <div class="gesture-item"><div class="g-icon">🤏🤏</div><div class="gesture-info"><div class="gesture-name">2 Pinças simultâneas</div><div class="gesture-desc">Zoom do painel 3D</div></div></div>
+      <div class="gesture-item"><div class="g-icon">☝️</div><div class="gesture-info"><div class="gesture-name">Dedo Indicador (menu aberto)</div><div class="gesture-desc">Cursor no menu radial / teclado</div></div></div>
+      <div class="gesture-item"><div class="g-icon">✌️</div><div class="gesture-info"><div class="gesture-name">V de Vitória</div><div class="gesture-desc">Liga/desliga passthrough de câmera</div></div></div>
+      <div class="gesture-item"><div class="g-icon">👍</div><div class="gesture-info"><div class="gesture-name">Polegar para cima</div><div class="gesture-desc">Centraliza/recalibra câmera</div></div></div>
+      <div class="gesture-item"><div class="g-icon">👌</div><div class="gesture-info"><div class="gesture-name">Dupla pinça rápida (&lt;300ms)</div><div class="gesture-desc">Clique direito do mouse no PC</div></div></div>
+      <div class="gesture-item"><div class="g-icon">🤚↕</div><div class="gesture-info"><div class="gesture-name">Mão esquerda aberta + mover verticalmente</div><div class="gesture-desc">Scroll no PC conectado</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONNECTION PANEL ===== -->
+<div class="panel-overlay hidden" id="connectionPanel">
+  <div class="panel-header">
+    <h3>🖥️ Conexão com o PC</h3>
+    <button class="panel-close" onclick="closePanel('connectionPanel')">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="conn-status">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connStatusLabel">Desconectado</span>
+    </div>
+    <div class="field-group">
+      <label>IP do Computador</label>
+      <input type="text" id="pcIpInput" placeholder="192.168.1.100" value="">
+    </div>
+    <div class="field-group">
+      <label>Porta</label>
+      <input type="number" id="pcPortInput" placeholder="9001" value="9001">
+    </div>
+    <button class="btn-primary" id="connectBtn" onclick="togglePCConnection()">Conectar</button>
+    <button class="btn-secondary" onclick="closePanel('connectionPanel')">Fechar</button>
+    <hr style="border-color:var(--border);margin:12px 0;">
+    <div style="font-size:0.75rem;color:var(--text2);margin-bottom:6px;font-weight:600;">📋 Script do Servidor Python</div>
+    <div style="font-size:0.7rem;color:var(--text2);margin-bottom:6px;">Copie e execute no seu PC para habilitar a conexão:</div>
+    <div id="serverScriptBox"></div>
+    <button class="copy-btn" onclick="copyServerScript()">📋 Copiar Script</button>
+  </div>
+</div>
+
+<!-- ===== SETTINGS PANEL ===== -->
+<div class="panel-overlay hidden" id="settingsPanel">
+  <div class="panel-header">
+    <h3>⚙️ Configurações</h3>
+    <button class="panel-close" onclick="closePanel('settingsPanel')">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="setting-row">
+      <label>Suavização do giroscópio</label>
+      <div class="range-group">
+        <input type="range" id="gyroSmooth" min="0.01" max="0.3" step="0.01" value="0.08">
+        <span id="gyroSmoothVal">0.08</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>Zona morta (graus)</label>
+      <div class="range-group">
+        <input type="range" id="gyroDeadzone" min="0" max="5" step="0.5" value="2">
+        <span id="gyroDeadzoneVal">2°</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>Inércia da câmera</label>
+      <div class="range-group">
+        <input type="range" id="gyroInertia" min="0.8" max="0.99" step="0.01" value="0.92">
+        <span id="gyroInertiaVal">0.92</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>FPS do stream PC</label>
+      <div class="range-group">
+        <input type="range" id="streamFps" min="5" max="30" step="1" value="15">
+        <span id="streamFpsVal">15</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>Tema escuro</label>
+      <label class="toggle"><input type="checkbox" id="darkToggle" checked onchange="toggleTheme()"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <label>Mostrar barra inferior</label>
+      <label class="toggle"><input type="checkbox" id="bottomBarToggle" checked onchange="toggleBottomBar()"><span class="toggle-slider"></span></label>
+    </div>
+    <div style="font-size:0.75rem;color:var(--text2);margin:12px 0 6px;">Cor de destaque</div>
+    <div class="color-row" id="colorSwatches">
+      <div class="color-swatch selected" style="background:#7c3aed" data-color="#7c3aed" onclick="setAccentColor('#7c3aed','#a855f7')"></div>
+      <div class="color-swatch" style="background:#0ea5e9" data-color="#0ea5e9" onclick="setAccentColor('#0ea5e9','#38bdf8')"></div>
+      <div class="color-swatch" style="background:#059669" data-color="#059669" onclick="setAccentColor('#059669','#34d399')"></div>
+      <div class="color-swatch" style="background:#dc2626" data-color="#dc2626" onclick="setAccentColor('#dc2626','#f87171')"></div>
+      <div class="color-swatch" style="background:#d97706" data-color="#d97706" onclick="setAccentColor('#d97706','#fbbf24')"></div>
+      <div class="color-swatch" style="background:#db2777" data-color="#db2777" onclick="setAccentColor('#db2777','#f472b6')"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== NOTES PANEL ===== -->
+<div class="panel-overlay hidden" id="notesPanel">
+  <div class="panel-header">
+    <h3>📝 Notas</h3>
+    <button class="panel-close" onclick="closePanel('notesPanel')">✕</button>
+  </div>
+  <div class="panel-body">
+    <textarea id="notesArea" placeholder="Escreva suas notas aqui..."></textarea>
+  </div>
+</div>
+
+<!-- ===== BROWSER PANEL ===== -->
+<div class="panel-overlay hidden" id="browserPanel">
+  <div class="panel-header">
+    <h3>🌐 Navegador</h3>
+    <button class="panel-close" onclick="closePanel('browserPanel')">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="url-bar">
+      <input type="url" id="browserUrl" placeholder="https://..." value="https://www.google.com">
+      <button class="btn-primary" style="width:auto;padding:6px 12px;margin:0;" onclick="loadBrowserUrl()">Ir</button>
+    </div>
+    <iframe id="browserFrame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+  </div>
+</div>
+
+<!-- ===== SYSTEM INFO PANEL ===== -->
+<div class="panel-overlay hidden" id="sysPanel">
+  <div class="panel-header">
+    <h3>📊 Informações do Sistema</h3>
+    <button class="panel-close" onclick="closePanel('sysPanel')">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="info-grid">
+      <div class="info-card"><div class="val" id="sysFps">-</div><div class="lbl">FPS</div></div>
+      <div class="info-card"><div class="val" id="sysLatency">-</div><div class="lbl">Latência WS (ms)</div></div>
+      <div class="info-card"><div class="val" id="sysHands">0</div><div class="lbl">Mãos detectadas</div></div>
+      <div class="info-card"><div class="val" id="sysOrientation">-</div><div class="lbl">Orientação (°)</div></div>
+      <div class="info-card"><div class="val" id="sysFrames">-</div><div class="lbl">Frames PC</div></div>
+      <div class="info-card"><div class="val" id="sysGyro">OFF</div><div class="lbl">Giroscópio</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== VIRTUAL KEYBOARD ===== -->
+<div id="keyboard" class="hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <span style="font-size:0.7rem;color:var(--text2);">⌨️ Teclado Virtual</span>
+    <button id="kbClose" onclick="toggleKeyboard()">✕ Fechar</button>
+  </div>
+  <div class="kb-row" id="kbRow1"></div>
+  <div class="kb-row" id="kbRow2"></div>
+  <div class="kb-row" id="kbRow3"></div>
+  <div class="kb-row" id="kbRow4"></div>
+</div>
+
+<!-- ===== SERVER SCRIPT (hidden) ===== -->
+<textarea id="serverScriptContent" style="display:none;">
+# NGS VR PC Server v0.3
+# Instalação: pip install websockets mss pyautogui pillow
+# Uso: python ngs_vr_server.py
+# Depois conecte pelo celular usando o IP desta máquina na porta 9001
+
+import asyncio, websockets, mss, base64, json, pyautogui
+from PIL import Image
+import io, time
+
+pyautogui.FAILSAFE = False
+CLIENTS = set()
+SCREEN_W, SCREEN_H = pyautogui.size()
+
+async def capture_and_send(ws):
+    sct = mss.mss()
+    mon = sct.monitors[1]
+    while True:
+        try:
+            img = sct.grab(mon)
+            pil = Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
+            pil = pil.resize((960, 540))
+            buf = io.BytesIO()
+            pil.save(buf, format="JPEG", quality=45)
+            b64 = base64.b64encode(buf.getvalue()).decode()
+            await ws.send(json.dumps({"type":"frame","data":b64}))
+            await asyncio.sleep(1/15)
+        except Exception as e:
+            print(f"Capture error: {e}")
+            break
+
+async def handler(ws):
+    CLIENTS.add(ws)
+    print(f"Cliente conectado: {ws.remote_address}")
+    send_task = asyncio.create_task(capture_and_send(ws))
+    try:
+        async for msg in ws:
+            try:
+                cmd = json.loads(msg)
+                t = cmd.get("type","")
+                if t == "mouse_move":
+                    x = int(cmd["x"] * SCREEN_W)
+                    y = int(cmd["y"] * SCREEN_H)
+                    pyautogui.moveTo(x, y, duration=0)
+                elif t == "mouse_click":
+                    btn = cmd.get("button","left")
+                    pyautogui.click(button=btn)
+                elif t == "scroll":
+                    pyautogui.scroll(cmd.get("dy",3))
+                elif t == "key":
+                    pyautogui.press(cmd["key"])
+                elif t == "type":
+                    pyautogui.write(cmd["text"], interval=0.02)
+            except Exception as e:
+                print(f"Command error: {e}")
+    except Exception:
+        pass
+    finally:
+        send_task.cancel()
+        CLIENTS.discard(ws)
+        print(f"Cliente desconectado: {ws.remote_address}")
+
+async def main():
+    import socket
+    hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(hostname)
+    print(f"NGS VR Server rodando em ws://{local_ip}:9001")
+    print(f"Use o IP {local_ip} no celular para conectar")
+    async with websockets.serve(handler, "0.0.0.0", 9001):
+        await asyncio.Future()
+
+asyncio.run(main())
+</textarea>
 
 <script type="module">
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
-import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+// ============================================================
+//  IMPORTS
+// ============================================================
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { HandLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
 
 // ============================================================
-// HELPERS
+//  GLOBALS
 // ============================================================
-const $=id=>document.getElementById(id);
-const root=document.documentElement;
+let scene, camera, renderer, clock;
+let handLandmarker = null;
+let cameraStream = null;
+let passthroughActive = false;
+let darkTheme = true;
+let radialMenuOpen = false;
+let gyroEnabled = false;
+let gyroCalibrated = false;
+let baseQuaternion = new THREE.Quaternion();
+let currentQuat = new THREE.Quaternion();
+let targetQuat = new THREE.Quaternion();
+let gyroVelocity = new THREE.Vector3();
+let lastGyroAngles = {alpha:0,beta:0,gamma:0};
+const DEG2RAD = Math.PI/180;
 
-// ============================================================
-// STATE
-// ============================================================
-let stream=null, landmarker=null, running=false;
-let renderer,scene,camera,raycaster,intersectPlane;
-let cursors=[], panels=[], selected=null;
-let prevPinch=[false,false], lastVideoTime=-1;
-let passthroughActive=false, menuOpen=false;
-let openHandTimer=[0,0], pinchCooldown=[0,0];
-let perfMode='balanced';
-let accentColor='#ff4fc8';
-let accentL=65;
-let frameCount=0, lastFPS=performance.now(), fps=0;
-let calibQuat=null, refQuat=null, isCalibrated=false;
+// Settings
+let gyroSmoothFactor = 0.08;
+let gyroDeadzone = 2.0; // degrees
+let gyroInertiaFactor = 0.92;
 
-// ============================================================
-// THEME & COLOR SYSTEM
-// ============================================================
-function hexToHSL(hex){
-  let r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255;
-  const max=Math.max(r,g,b),min=Math.min(r,g,b);let h,s,l=(max+min)/2;
-  if(max===min){h=s=0;}else{const d=max-min;s=l>.5?d/(2-max-min):d/(max+min);
-    switch(max){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;case b:h=(r-g)/d+4;break;}h/=6;}
-  return [Math.round(h*360),Math.round(s*100),Math.round(l*100)];
-}
-function applyAccent(hex, forceL=null){
-  accentColor=hex;
-  const [h,s,l]=hexToHSL(hex);
-  const usedL=forceL??l;
-  accentL=usedL;
-  root.style.setProperty('--accent',`hsl(${h},${s}%,${usedL}%)`);
-  root.style.setProperty('--accent-h',h);
-  root.style.setProperty('--accent-s',s+'%');
-  root.style.setProperty('--accent-l',usedL+'%');
-  root.style.setProperty('--secondary',`hsl(${(h+40)%360},${s}%,${Math.max(usedL-10,20)}%)`);
-  // update 3D panels if already built
-  updatePanelColors();
-  // update brightness slider gradient
-  $('brightnessSlider').style.background=`linear-gradient(to right,#000,hsl(${h},${s}%,${usedL}%),#fff)`;
-  $('brightnessVal').textContent=Math.round(usedL)+'%';
-}
-function setTheme(theme){
-  root.setAttribute('data-theme',theme);
-  $('darkBtn').classList.toggle('active',theme==='dark');
-  $('lightBtn').classList.toggle('active',theme==='light');
-  if(scene) scene.background=new THREE.Color(theme==='dark'?0x080812:0xf0eef8);
-}
-$('darkBtn').addEventListener('click',()=>setTheme('dark'));
-$('lightBtn').addEventListener('click',()=>setTheme('light'));
+// Hand tracking state
+let handsData = {left:null, right:null};
+let leftPinching = false, rightPinching = false;
+let leftPinchPrev = false, rightPinchPrev = false;
+let leftHandOpen = false, rightHandOpen = false;
+let rightFistHeld = false;
+let rightFistTimer = null;
+let openHandTimer = null;
+let gestureDebounce = {};
 
-// ============================================================
-// COLOR WHEEL
-// ============================================================
-function drawColorWheel(){
-  const canvas=$('colorWheelCanvas'), ctx=canvas.getContext('2d'), r=80;
-  for(let angle=0;angle<360;angle++){
-    const start=(angle-1)*Math.PI/180, end=(angle+1)*Math.PI/180;
-    const g=ctx.createRadialGradient(r,r,0,r,r,r);
-    g.addColorStop(0,'#fff');
-    g.addColorStop(1,`hsl(${angle},100%,50%)`);
-    ctx.beginPath();ctx.moveTo(r,r);ctx.arc(r,r,r,start,end);ctx.closePath();
-    ctx.fillStyle=g;ctx.fill();
-  }
-}
-function colorWheelAt(x,y){
-  const r=80,dx=x-r,dy=y-r,dist=Math.hypot(dx,dy);
-  if(dist>r)return null;
-  const angle=(Math.atan2(dy,dx)*180/Math.PI+360)%360;
-  const sat=dist/r;
-  return {h:Math.round(angle),s:Math.round(sat*100),l:accentL};
-}
-function moveCursor(x,y){
-  const r=80,dx=x-r,dy=y-r,dist=Math.hypot(dx,dy);
-  const clamp=Math.min(dist,r);
-  const angle=Math.atan2(dy,dx);
-  const cx=r+Math.cos(angle)*clamp, cy=r+Math.sin(angle)*clamp;
-  $('colorCursor').style.left=cx+'px';
-  $('colorCursor').style.top=cy+'px';
-}
-const cwCanvas=$('colorWheelCanvas');
-drawColorWheel();
-function onWheel(e){
-  const rect=cwCanvas.getBoundingClientRect();
-  const x=e.clientX-rect.left, y=e.clientY-rect.top;
-  const hsl=colorWheelAt(x,y);
-  if(!hsl)return;
-  moveCursor(x,y);
-  applyAccent(`hsl(${hsl.h},${hsl.s}%,${hsl.l}%)`,hsl.l);
-  document.querySelectorAll('.preset-dot').forEach(d=>d.classList.remove('active'));
-}
-cwCanvas.addEventListener('mousedown',e=>{onWheel(e);cwCanvas.addEventListener('mousemove',onWheel);});
-cwCanvas.addEventListener('touchstart',e=>{
-  const t=e.touches[0],rect=cwCanvas.getBoundingClientRect();
-  const ev={clientX:t.clientX,clientY:t.clientY};onWheel(ev);
-  cwCanvas.addEventListener('touchmove',ev2=>{
-    const t2=ev2.touches[0];
-    onWheel({clientX:t2.clientX,clientY:t2.clientY});
-  });
-},{passive:true});
-document.addEventListener('mouseup',()=>cwCanvas.removeEventListener('mousemove',onWheel));
-document.addEventListener('touchend',()=>cwCanvas.removeEventListener('touchmove',onWheel));
+// PC Connection
+let pcWebSocket = null;
+let pcConnected = false;
+let pcFrameCount = 0;
+let wsLatency = 0;
+let pingSentAt = 0;
+let pcScreenPanel = null;
+let pcScreenTexture = null;
+let pcScreenCanvas = null;
+let pcScreenCtx = null;
+let lastPinchTime = 0;
 
-// PRESET DOTS
-document.querySelectorAll('.preset-dot').forEach(dot=>{
-  dot.addEventListener('click',()=>{
-    document.querySelectorAll('.preset-dot').forEach(d=>d.classList.remove('active'));
-    dot.classList.add('active');
-    applyAccent(dot.dataset.color);
-  });
-});
+// 3D Panels
+let panels3D = [];
+let dragPanel = null;
+let dragOffset = new THREE.Vector3();
+let panelScales = {};
 
-// BRIGHTNESS SLIDER
-$('brightnessSlider').addEventListener('input',e=>{
-  const v=parseInt(e.target.value);
-  applyAccent(accentColor,v);
-});
-
-// PASSTHROUGH OPACITY
-$('passthroughOpacity').addEventListener('input',e=>{
-  $('passthroughVideo').style.opacity=parseInt(e.target.value)/100;
-});
-
-// PERF MODE
-document.querySelectorAll('[data-perf]').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('[data-perf]').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    perfMode=btn.dataset.perf;
-  });
-});
-
-// SETTINGS PANEL
-$('settingsBtn').addEventListener('click',()=>$('settingsPanel').classList.toggle('open'));
-$('closeSettings').addEventListener('click',()=>$('settingsPanel').classList.remove('open'));
+// FPS
+let frameCount = 0, fps = 60;
+let fpsInterval = setInterval(()=>{fps=frameCount;frameCount=0;document.getElementById('fpsBadge').textContent=fps+' FPS';},1000);
 
 // ============================================================
-// 3D SCENE SETUP
+//  RADIAL MENU ITEMS
 // ============================================================
-const panelMeshes=[];
+const RADIAL_ITEMS = [
+  {id:'workspace', icon:'🗂️', label:'Painéis',  action:()=>openPanelManager()},
+  {id:'pc',        icon:'🖥️', label:'PC',        action:()=>openPanel('connectionPanel')},
+  {id:'gestures',  icon:'🤚', label:'Gestos',    action:()=>openPanel('gesturePanel')},
+  {id:'keyboard',  icon:'⌨️', label:'Teclado',   action:()=>toggleKeyboard()},
+  {id:'settings',  icon:'⚙️', label:'Config',    action:()=>openPanel('settingsPanel')},
+  {id:'sysinfo',   icon:'📊', label:'Sistema',   action:()=>openPanel('sysPanel')},
+  {id:'notes',     icon:'📝', label:'Notas',     action:()=>openPanel('notesPanel')},
+  {id:'browser',   icon:'🌐', label:'Browser',   action:()=>openPanel('browserPanel')},
+];
 
-function updatePanelColors(){
-  panelMeshes.forEach(({edge,mat})=>{
-    const col=new THREE.Color(accentColor);
-    edge.material.color.set(col);
-    mat.color.set(col);
-  });
+// ============================================================
+//  VIRTUAL KEYBOARD LAYOUT
+// ============================================================
+const KB_ROWS = [
+  ['1','2','3','4','5','6','7','8','9','0','⌫'],
+  ['q','w','e','r','t','y','u','i','o','p'],
+  ['a','s','d','f','g','h','j','k','l','↵'],
+  ['⇧','z','x','c','v','b','n','m',',','.','⇧'],
+];
+
+// ============================================================
+//  INIT
+// ============================================================
+function init(){
+  buildRadialMenu();
+  buildKeyboard();
+  document.getElementById('serverScriptBox').textContent =
+    document.getElementById('serverScriptContent').value;
+  setupSettingsSliders();
+  document.getElementById('startBtn').onclick = startExperience;
 }
 
-function makePanel(title,subtitle,px,py,w=1.55,h=1.0){
-  const g=new THREE.Group();g.position.set(px,py,-3.4);
-  const col=new THREE.Color(accentColor);
-  const mat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.10,side:THREE.DoubleSide});
-  const body=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);
-  const edge=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(w,h)),new THREE.LineBasicMaterial({color:col,transparent:true,opacity:.9}));
-  g.add(body,edge);
-  // canvas label
-  const cv=document.createElement('canvas');cv.width=512;cv.height=200;
-  const ctx=cv.getContext('2d');
-  ctx.fillStyle='#f0eaff';ctx.font='bold 36px Arial';ctx.fillText(title,24,60);
-  ctx.fillStyle='#c8b8ef';ctx.font='20px Arial';ctx.fillText(subtitle,24,100);
-  ctx.fillStyle=accentColor;ctx.fillRect(24,124,88,4);
-  const tex=new THREE.CanvasTexture(cv);
-  const lbl=new THREE.Mesh(new THREE.PlaneGeometry(w*.9,h*.75),new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false}));
-  lbl.position.z=.01;g.add(lbl);
-  g.userData={title,baseY:py};
-  scene.add(g);panels.push(g);
-  panelMeshes.push({edge,mat});
-  return g;
+async function startExperience(){
+  document.getElementById('intro').style.opacity='0';
+  document.getElementById('intro').style.transition='opacity 0.5s';
+  setTimeout(()=>document.getElementById('intro').style.display='none',500);
+  initThree();
+  createDefaultPanels();
+  await initMediaPipe();
+  await startCamera();
+  initGyroscope();
+  requestAnimationFrame(animate);
 }
 
-function init3D(){
-  scene=new THREE.Scene();scene.background=new THREE.Color(0x080812);
-  camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.05,100);
+// ============================================================
+//  THREE.JS SETUP
+// ============================================================
+function initThree(){
+  const canvas = document.getElementById('canvas3d');
+  renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x000000,0);
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 100);
   camera.position.set(0,0,0);
-  renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
-  renderer.setPixelRatio(Math.min(devicePixelRatio,perfMode==='eco'?1.0:1.7));
-  renderer.setSize(innerWidth,innerHeight);
-  renderer.outputColorSpace=THREE.SRGBColorSpace;
-  $('scene').appendChild(renderer.domElement);
-  raycaster=new THREE.Raycaster();
-  intersectPlane=new THREE.Plane(new THREE.Vector3(0,0,1),3.4);
-  // Grid
-  const grid=new THREE.GridHelper(14,28,new THREE.Color(accentColor),0x1a1530);
-  grid.position.set(0,-2.1,-4);scene.add(grid);
-  // Stars
-  const starGeo=new THREE.BufferGeometry();
-  const stV=[];for(let i=0;i<400;i++){stV.push((Math.random()-.5)*40,(Math.random()-.5)*20,-Math.random()*25-5);}
-  starGeo.setAttribute('position',new THREE.Float32BufferAttribute(stV,3));
-  scene.add(new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xffffff,size:.04,transparent:true,opacity:.5})));
-  // Panels
-  makePanel('WORKSPACE','Área de trabalho virtual',-1.1,.7);
-  makePanel('LABORATÓRIO 3D','Modelos científicos',1.1,.7);
-  makePanel('ANOTAÇÕES','Bloco de estudo',0,-.65,1.6,.8);
-  // Cursors
-  for(let i=0;i<2;i++){
-    const c=new THREE.Mesh(new THREE.SphereGeometry(.07,16,16),new THREE.MeshBasicMaterial({color:i?0x61e7ff:new THREE.Color(accentColor)}));
-    c.visible=false;scene.add(c);cursors.push(c);
-  }
-  // Resize
-  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
-  // Gyro
-  setupGyro();
+  clock = new THREE.Clock();
+
+  const ambient = new THREE.AmbientLight(0xffffff,0.6);
+  scene.add(ambient);
+  const dirLight = new THREE.DirectionalLight(0xa855f7,1.2);
+  dirLight.position.set(2,4,3);
+  scene.add(dirLight);
+
+  window.addEventListener('resize',()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
+  });
 }
 
 // ============================================================
-// GYROSCOPE — quaternion SLERP with calibration
+//  3D PANELS
 // ============================================================
-function setupGyro(){
-  const targetQ=new THREE.Quaternion();
-  const euler=new THREE.Euler();
-  let hasPermission=false;
+function createPanel3D(opts){
+  const {w=1.6,h=1.0,z=-2.5,x=0,y=0,title='Panel',color=0x7c3aed,id}=opts;
+  const geo = new THREE.PlaneGeometry(w,h);
+  const canvas = document.createElement('canvas');
+  canvas.width=512; canvas.height=320;
+  const ctx = canvas.getContext('2d');
+  drawPanelContent(ctx,title,w,h,color);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.MeshStandardMaterial({map:tex,transparent:true,side:THREE.FrontSide});
+  const mesh = new THREE.Mesh(geo,mat);
+  mesh.position.set(x,y,z);
+  scene.add(mesh);
 
-  const handler=e=>{
-    if(e.alpha==null)return;
-    euler.set(
-      THREE.MathUtils.degToRad(e.beta||0),
-      THREE.MathUtils.degToRad(e.alpha||0),
-      -THREE.MathUtils.degToRad(e.gamma||0),
-      'YXZ'
+  const edgeGeo = new THREE.EdgesGeometry(geo);
+  const edgeMat = new THREE.LineBasicMaterial({color});
+  const edges = new THREE.LineSegments(edgeGeo,edgeMat);
+  mesh.add(edges);
+
+  const panel = {mesh,canvas,ctx,tex,title,id:id||Date.now(),w,h,color};
+  panels3D.push(panel);
+  return panel;
+}
+
+function drawPanelContent(ctx,title,w,h,color){
+  const W=ctx.canvas.width, H=ctx.canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = darkTheme?'rgba(18,18,30,0.92)':'rgba(240,240,248,0.92)';
+  ctx.beginPath();
+  ctx.roundRect(4,4,W-8,H-8,16);
+  ctx.fill();
+  const r=parseInt('0x'+color.toString(16).padStart(6,'0').slice(0,2),16);
+  const g=parseInt('0x'+color.toString(16).padStart(6,'0').slice(2,4),16);
+  const b=parseInt('0x'+color.toString(16).padStart(6,'0').slice(4,6),16);
+  ctx.fillStyle=`rgba(${r},${g},${b},0.3)`;
+  ctx.beginPath(); ctx.roundRect(4,4,W-8,36,{upperLeft:12,upperRight:12,lowerLeft:0,lowerRight:0}); ctx.fill();
+  ctx.fillStyle=darkTheme?'#e0e0ff':'#1a1a2e';
+  ctx.font='bold 20px system-ui';
+  ctx.fillText(title,16,30);
+  ctx.fillStyle=darkTheme?'rgba(144,144,187,0.5)':'rgba(80,80,170,0.5)';
+  ctx.font='14px system-ui';
+  ctx.fillText('NGS VR Workspace v0.3',16,60);
+}
+
+function createDefaultPanels(){
+  createPanel3D({title:'🗂️ Workspace',x:-1.2,y:0.3,z:-2.8,w:1.4,h:0.9,color:0x7c3aed,id:'workspace'});
+  createPanel3D({title:'📡 Sensor',x:1.2,y:0.3,z:-2.8,w:1.4,h:0.9,color:0x0ea5e9,id:'sensor'});
+  createPanel3D({title:'🤚 Gestos',x:0,y:-0.5,z:-2.6,w:1.8,h:0.7,color:0x059669,id:'gesture'});
+  createPCPanel();
+}
+
+function createPCPanel(){
+  pcScreenCanvas = document.createElement('canvas');
+  pcScreenCanvas.width=960; pcScreenCanvas.height=540;
+  pcScreenCtx = pcScreenCanvas.getContext('2d');
+  drawPCPanelOffline(pcScreenCtx);
+  pcScreenTexture = new THREE.CanvasTexture(pcScreenCanvas);
+  const geo = new THREE.PlaneGeometry(2.4,1.4);
+  const mat = new THREE.MeshStandardMaterial({map:pcScreenTexture,transparent:false});
+  pcScreenPanel = new THREE.Mesh(geo,mat);
+  pcScreenPanel.position.set(0,0.4,-3.2);
+  const edgeGeo = new THREE.EdgesGeometry(geo);
+  const edgeMat = new THREE.LineBasicMaterial({color:0x7c3aed});
+  pcScreenPanel.add(new THREE.LineSegments(edgeGeo,edgeMat));
+  scene.add(pcScreenPanel);
+
+  // Title label
+  const tCanvas = document.createElement('canvas');
+  tCanvas.width=400; tCanvas.height=48;
+  const tCtx = tCanvas.getContext('2d');
+  tCtx.fillStyle='rgba(124,58,237,0.9)';
+  tCtx.roundRect(0,0,400,48,8); tCtx.fill();
+  tCtx.fillStyle='#fff'; tCtx.font='bold 22px system-ui';
+  tCtx.fillText('🖥️ TELA DO PC',12,32);
+  const tTex = new THREE.CanvasTexture(tCanvas);
+  const tGeo = new THREE.PlaneGeometry(2.4,0.14);
+  const tMat = new THREE.MeshStandardMaterial({map:tTex,transparent:true});
+  const tMesh = new THREE.Mesh(tGeo,tMat);
+  tMesh.position.set(0,0.4+0.7+0.07,0.001);
+  pcScreenPanel.add(tMesh);
+}
+
+function drawPCPanelOffline(ctx){
+  const W=ctx.canvas.width, H=ctx.canvas.height;
+  ctx.fillStyle='#0a0a12';
+  ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(124,58,237,0.15)';
+  ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#7c3aed';
+  ctx.font='bold 32px system-ui';
+  ctx.textAlign='center';
+  ctx.fillText('🖥️ Tela do PC',W/2,H/2-40);
+  ctx.fillStyle='#9090bb';
+  ctx.font='18px system-ui';
+  ctx.fillText('Desconectado',W/2,H/2);
+  ctx.fillStyle='#5050aa';
+  ctx.font='14px system-ui';
+  ctx.fillText('Vá em Menu → 🖥️ PC para configurar',W/2,H/2+36);
+  ctx.fillText('Execute ngs_vr_server.py no seu computador',W/2,H/2+60);
+  ctx.textAlign='left';
+}
+
+function updatePanelTextures(){
+  panels3D.forEach(p=>{
+    if(p.ctx && p.canvas && p.tex) p.tex.needsUpdate=true;
+  });
+}
+
+// ============================================================
+//  CAMERA PASSTHROUGH
+// ============================================================
+async function startCamera(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},
+      audio:false
+    });
+    cameraStream = stream;
+    const vid = document.getElementById('cameraFeed');
+    vid.srcObject = stream;
+    return new Promise(res=>vid.onloadedmetadata=()=>res());
+  }catch(e){ console.warn('Camera error:',e); }
+}
+
+window.togglePassthrough = function(){
+  passthroughActive = !passthroughActive;
+  const vid = document.getElementById('cameraFeed');
+  if(passthroughActive){ vid.classList.add('active'); renderer.setClearColor(0x000000,0); }
+  else { vid.classList.remove('active'); renderer.setClearColor(darkTheme?0x0a0a12:0xf0f0f8,1); }
+  document.getElementById('btnPassthrough').classList.toggle('active',passthroughActive);
+  showGestureFeedback(passthroughActive?'📷 Passthrough ON':'📷 Passthrough OFF');
+  if(navigator.vibrate) navigator.vibrate([20]);
+};
+
+// ============================================================
+//  MEDIAPIPE HAND TRACKING
+// ============================================================
+async function initMediaPipe(){
+  try{
+    const vision = await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
     );
-    const raw=new THREE.Quaternion().setFromEuler(euler);
-    if(!isCalibrated){refQuat=raw.clone();isCalibrated=true;}
-    const delta=refQuat.clone().invert().multiply(raw);
-    targetQ.copy(delta);
-    const alpha=perfMode==='eco'?.02:perfMode==='high'?.06:.035;
-    camera.quaternion.slerp(targetQ,alpha);
-  };
+    handLandmarker = await HandLandmarker.createFromOptions(vision,{
+      baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',delegate:'GPU'},
+      runningMode:'VIDEO',numHands:2,minHandDetectionConfidence:0.5,
+      minHandPresenceConfidence:0.5,minTrackingConfidence:0.5
+    });
+    console.log('MediaPipe HandLandmarker initialized');
+    startHandTracking();
+  }catch(e){ console.warn('MediaPipe error:',e); }
+}
 
-  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-    DeviceOrientationEvent.requestPermission().then(r=>{if(r==='granted'){window.addEventListener('deviceorientation',handler,{passive:true});hasPermission=true;}}).catch(()=>{});
-  } else {
-    window.addEventListener('deviceorientation',handler,{passive:true});
+function startHandTracking(){
+  const vid = document.getElementById('cameraFeed');
+  let lastVideoTime = -1;
+  function detect(){
+    if(!handLandmarker||!vid.videoWidth) { requestAnimationFrame(detect); return; }
+    const now = performance.now();
+    if(vid.currentTime !== lastVideoTime){
+      lastVideoTime = vid.currentTime;
+      try{
+        const result = handLandmarker.detectForVideo(vid, now);
+        processHandResults(result);
+      }catch(e){}
+    }
+    requestAnimationFrame(detect);
   }
+  detect();
 }
 
-// ============================================================
-// HAND TRACKING
-// ============================================================
-function pointerFromLM(lm){
-  return new THREE.Vector2((lm.x-.5)*2,(0.5-lm.y)*2);
+function processHandResults(result){
+  handsData = {left:null, right:null};
+  if(!result||!result.landmarks) return;
+  const count = result.landmarks.length;
+  document.getElementById('sysHands').textContent = count;
+
+  for(let i=0;i<result.landmarks.length;i++){
+    const lm = result.landmarks[i];
+    const hand = result.handedness[i][0].categoryName.toLowerCase();
+    // Mirror: MediaPipe left/right is from selfie view, invert for rear camera
+    const side = (hand==='left')?'right':'left';
+    handsData[side] = lm;
+  }
+
+  updateHandCursors();
+  detectGestures();
+  handleMenuFingerSelection();
+  handleKeyboardFingerSelection();
+  if(pcConnected) handlePCControl();
 }
-function isPinch(lm){
-  return Math.hypot(lm[4].x-lm[8].x,lm[4].y-lm[8].y)<.055;
+
+function dist2D(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function dist3D(a,b){ return Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z); }
+
+function isPinching(lm){
+  if(!lm) return false;
+  return dist3D(lm[4],lm[8]) < 0.055;
 }
 function isOpenHand(lm){
-  const fingersUp=[8,12,16,20].filter(i=>{const y=lm[i].y;return y<lm[i-2].y;}).length;
-  return fingersUp>=3;
+  if(!lm) return false;
+  const fingertips=[8,12,16,20], bases=[6,10,14,18];
+  let ext=0;
+  for(let i=0;i<4;i++){
+    if(lm[fingertips[i]].y < lm[bases[i]].y) ext++;
+  }
+  return ext>=3;
 }
-function worldPt(ndc){
-  raycaster.setFromCamera(ndc,camera);
-  const p=new THREE.Vector3();raycaster.ray.intersectPlane(intersectPlane,p);return p;
+function isFist(lm){
+  if(!lm) return false;
+  const fingertips=[8,12,16,20], bases=[6,10,14,18];
+  let closed=0;
+  for(let i=0;i<4;i++){
+    if(lm[fingertips[i]].y > lm[bases[i]].y) closed++;
+  }
+  return closed>=3;
 }
-function showGesture(msg){
-  const fb=$('gestureFeedback');fb.textContent=msg;fb.style.opacity='1';
-  clearTimeout(fb._t);fb._t=setTimeout(()=>fb.style.opacity='0',900);
+function isVictory(lm){
+  if(!lm) return false;
+  const idx8y=lm[8].y, mid12y=lm[12].y, ring16y=lm[16].y, pinky20y=lm[20].y;
+  const idx6y=lm[6].y, mid10y=lm[10].y, ring14y=lm[14].y, pinky18y=lm[18].y;
+  return idx8y<idx6y && mid12y<mid10y && ring16y>ring14y && pinky20y>pinky18y;
+}
+function isThumbUp(lm){
+  if(!lm) return false;
+  return lm[4].y < lm[3].y && lm[8].y > lm[6].y && lm[12].y > lm[10].y &&
+         lm[16].y > lm[14].y && lm[20].y > lm[18].y;
 }
 
-function updateHands(result){
-  const handsRaw=(result.landmarks||[]).slice(0,2);
-  $('handCount').textContent=`Mãos: ${handsRaw.length}/2`;
-  const pinches=[];
-  const now=performance.now();
+function gestureDebounced(name, fn, delay=400){
+  const now = Date.now();
+  if(!gestureDebounce[name]||now-gestureDebounce[name]>delay){
+    gestureDebounce[name]=now;
+    fn();
+  }
+}
 
-  handsRaw.forEach((lm,i)=>{
-    const ndc=pointerFromLM(lm[8]);
-    const p=worldPt(ndc);
-    cursors[i].visible=true;cursors[i].position.copy(p);
-    pinches[i]=isPinch(lm);
+// ============================================================
+//  GESTURE DETECTION
+// ============================================================
+function detectGestures(){
+  const L = handsData.left, R = handsData.right;
+  const rPinch = isPinching(R), lPinch = isPinching(L);
+  const rOpen = isOpenHand(R), lOpen = isOpenHand(L);
+  const rFist = isFist(R), lFist = isFist(L);
 
-    // Open hand → open menu (debounced)
-    if(isOpenHand(lm)){
-      openHandTimer[i]=(openHandTimer[i]||0)+16;
-      if(openHandTimer[i]>400&&!menuOpen){toggleMenu();openHandTimer[i]=0;}
-    } else {openHandTimer[i]=0;}
+  // ---- Open hand → open menu (right hand, 0.4s hold)
+  if(rOpen && !radialMenuOpen){
+    if(!openHandTimer){
+      openHandTimer = setTimeout(()=>{
+        gestureDebounced('openMenu',()=>{
+          toggleRadialMenu();
+          showGestureFeedback('🤚 Menu Aberto');
+          if(navigator.vibrate) navigator.vibrate([20]);
+        },800);
+        openHandTimer=null;
+      },400);
+    }
+  } else if(!rOpen){ clearTimeout(openHandTimer); openHandTimer=null; }
 
-    // Pinch select
-    if(pinches[i]&&!prevPinch[i]&&!selected&&handsRaw.length<2&&(now-pinchCooldown[i]>400)){
-      raycaster.setFromCamera(ndc,camera);
-      const hits=raycaster.intersectObjects(panels,true);
-      if(hits.length){
-        let obj=hits[0].object;while(obj.parent&&!panels.includes(obj))obj=obj.parent;
-        selected=obj;showGesture('✊ Selecionado: '+obj.userData.title);
+  // ---- Victory gesture → toggle passthrough
+  if(isVictory(R)||isVictory(L)){
+    gestureDebounced('victory',()=>{
+      togglePassthrough();
+    },600);
+  }
+
+  // ---- Thumb up → calibrate/center
+  if(isThumbUp(R)){
+    gestureDebounced('thumbup',()=>{
+      calibrateGyro();
+      showGestureFeedback('👍 Câmera Centralizada');
+    },600);
+  }
+
+  // ---- Right fist for 1.5s → recalibrate
+  if(rFist){
+    if(!rightFistTimer){
+      rightFistTimer = setTimeout(()=>{
+        calibrateGyro();
+        showGestureFeedback('✊ Giroscópio Recalibrado');
+        if(navigator.vibrate) navigator.vibrate([40,20,40]);
+        rightFistTimer=null;
+      },1500);
+      showProgressRing(R?R[9]:null, 1500);
+    }
+  } else { clearTimeout(rightFistTimer); rightFistTimer=null; hideProgressRing(); }
+
+  // ---- Left open hand moving vertically → scroll (PC)
+  if(pcConnected && lOpen && L){
+    const lPalmY = L[9].y;
+    if(typeof window._prevLPalmY === 'number'){
+      const dy = (window._prevLPalmY - lPalmY)*20;
+      if(Math.abs(dy)>0.5){
+        throttledSend({type:'scroll', dy: Math.round(dy)});
       }
     }
-    // Drag
-    if(pinches[i]&&selected&&handsRaw.length<2){selected.position.lerp(p,.35);}
-    // Release
-    if(!pinches[i]&&prevPinch[i]&&selected&&handsRaw.length<2){showGesture('✋ Solto');selected=null;pinchCooldown[i]=now;}
-  });
+    window._prevLPalmY = lPalmY;
+  } else { window._prevLPalmY = undefined; }
 
-  // 2-hand scale
-  if(handsRaw.length===2&&pinches[0]&&pinches[1]){
-    const a=worldPt(pointerFromLM(handsRaw[0][8])), b=worldPt(pointerFromLM(handsRaw[1][8]));
-    if(!selected){
-      raycaster.setFromCamera(pointerFromLM(handsRaw[0][8]),camera);
-      const hit=raycaster.intersectObjects(panels,true)[0];
-      if(hit){let o=hit.object;while(o.parent&&!panels.includes(o))o=o.parent;selected=o;}
-    }
-    if(selected){
-      const d=THREE.MathUtils.clamp(a.distanceTo(b),.35,2.6);
-      selected.scale.setScalar(THREE.MathUtils.clamp(d*.7,.55,1.75));
-      showGesture('🤏🤏 Zoom');
-    }
-  } else if(handsRaw.length===2&&(!pinches[0]||!pinches[1])&&selected){selected=null;}
-
-  for(let i=handsRaw.length;i<2;i++)cursors[i].visible=false;
-  prevPinch=[!!pinches[0],!!pinches[1]];
-  $('status').textContent=handsRaw.length?`Rastreando ${handsRaw.length} mão(s) · ${pinches.filter(Boolean).length} pinça(s)`:'Mostre as mãos à câmera';
+  // Update pinch state
+  rightPinchPrev = rightPinching;
+  leftPinchPrev = leftPinching;
+  rightPinching = rPinch;
+  leftPinching = lPinch;
 }
 
 // ============================================================
-// PASSTHROUGH
+//  HAND CURSORS (2D Overlay)
 // ============================================================
-function togglePassthrough(){
-  passthroughActive=!passthroughActive;
-  const ptv=$('passthroughVideo');
-  if(passthroughActive){
-    ptv.srcObject=stream;
-    ptv.style.display='block';
-    $('passthroughBadge').style.display='block';
-    $('passthroughBtn').textContent='🚫 Passthrough';
-    // Fade panels
-    panels.forEach(p=>p.children.forEach(c=>{if(c.material)c.material.opacity*=.5;}));
-  } else {
-    ptv.style.display='none';ptv.srcObject=null;
-    $('passthroughBadge').style.display='none';
-    $('passthroughBtn').textContent='👁 Passthrough';
-    panels.forEach(p=>p.children.forEach(c=>{if(c.material&&c.material.opacity<.3)c.material.opacity*=2;}));
-  }
-  showGesture(passthroughActive?'👁 Passthrough on':'Passthrough off');
+function updateHandCursors(){
+  const L = handsData.left, R = handsData.right;
+  const curL = document.getElementById('fingerCursorL');
+  const curR = document.getElementById('fingerCursorR');
+  if(L&&L[8]){
+    curL.style.display='block';
+    curL.style.left = (L[8].x*window.innerWidth)+'px';
+    curL.style.top = (L[8].y*window.innerHeight)+'px';
+  } else { curL.style.display='none'; }
+  if(R&&R[8]){
+    curR.style.display='block';
+    curR.style.left = (R[8].x*window.innerWidth)+'px';
+    curR.style.top = (R[8].y*window.innerHeight)+'px';
+  } else { curR.style.display='none'; }
 }
 
 // ============================================================
-// RADIAL MENU
+//  RADIAL MENU - FINGER SELECTION
 // ============================================================
-function toggleMenu(){
-  menuOpen=!menuOpen;
-  $('radialMenu').classList.toggle('open',menuOpen);
-  if(menuOpen)showGesture('✋ Menu aberto');
-}
-document.querySelectorAll('.radial-item').forEach(item=>{
-  item.addEventListener('click',()=>{
-    const a=item.dataset.action;
-    if(a==='close')toggleMenu();
-    else if(a==='center')centerCamera();
-    else if(a==='passthrough')togglePassthrough();
-    else if(a==='settings'){$('settingsPanel').classList.add('open');toggleMenu();}
-    else showGesture('🔧 '+a);
-    if(a!=='close')menuOpen=false,$('radialMenu').classList.remove('open');
-  });
-});
-$('menuBtn').addEventListener('click',toggleMenu);
-
-// ============================================================
-// RENDER LOOP
-// ============================================================
-let mpInterval=0;
-const MP_RATES={eco:150,balanced:60,high:33};
-
-function loop(){
-  if(!running)return;
-  const now=performance.now();
-  frameCount++;
-  if(now-lastFPS>500){fps=Math.round(frameCount*2);frameCount=0;lastFPS=now;}
-  if(video.readyState>=2&&video.currentTime!==lastVideoTime&&(now-mpInterval>MP_RATES[perfMode])){
-    lastVideoTime=video.currentTime;mpInterval=now;
-    try{updateHands(landmarker.detectForVideo(video,now));}catch(e){$('status').textContent='Err: '+e.message;}
-  }
-  renderer.render(scene,camera);requestAnimationFrame(loop);
-}
-
-// ============================================================
-// CAMERA
-// ============================================================
-const video=$('cameraPreview');
-async function startCamera(){
-  const constraints={audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480},frameRate:{ideal:perfMode==='eco'?20:24,max:30}}};
-  stream=await navigator.mediaDevices.getUserMedia(constraints);
-  video.srcObject=stream;await video.play();
-}
-
-// ============================================================
-// PORTRAIT LOCK
-// ============================================================
-function tryPortrait(){
-  if(screen.orientation?.lock){
-    screen.orientation.lock('portrait').catch(()=>{});
-  }
-}
-
-// ============================================================
-// CENTER / CALIBRATE
-// ============================================================
-function centerCamera(){
-  camera.quaternion.identity();isCalibrated=false;
-  showGesture('↺ Centralizado');
-}
-
-// ============================================================
-// START
-// ============================================================
-async function start(){
-  const btn=$('startBtn');
-  btn.disabled=true;btn.textContent='Carregando…';
-  $('error').textContent='';
-  try{
-    if(!navigator.mediaDevices?.getUserMedia)throw new Error('Câmera indisponível. Acesse via HTTPS no Chrome.');
-    await startCamera();
-    btn.textContent='Carregando modelo de visão…';
-    const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
-    landmarker=await HandLandmarker.createFromOptions(vision,{
-      baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',delegate:'GPU'},
-      runningMode:'VIDEO',numHands:2,
-      minHandDetectionConfidence:.55,minHandPresenceConfidence:.55,minTrackingConfidence:.55
+function handleMenuFingerSelection(){
+  if(!radialMenuOpen) return;
+  const items = document.querySelectorAll('.radial-item');
+  ['left','right'].forEach(side=>{
+    const lm = handsData[side];
+    if(!lm||!lm[8]) return;
+    const fx = lm[8].x*window.innerWidth;
+    const fy = lm[8].y*window.innerHeight;
+    const pinch = isPinching(lm);
+    items.forEach(el=>{
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left+rect.width/2, cy = rect.top+rect.height/2;
+      const d = Math.hypot(fx-cx, fy-cy);
+      if(d < 55){
+        el.classList.add('hovered');
+        if(pinch && !el._pinchFired){
+          el._pinchFired=true;
+          el.classList.add('active-pinch');
+          setTimeout(()=>el.classList.remove('active-pinch'),200);
+          el.click();
+          closeRadialMenu();
+          if(navigator.vibrate) navigator.vibrate([20]);
+        }
+        if(!pinch) el._pinchFired=false;
+      } else {
+        el.classList.remove('hovered');
+        if(!pinch) el._pinchFired=false;
+      }
     });
-    init3D();running=true;
-    $('intro').classList.add('hidden');
-    video.style.display='block';
-    document.documentElement.requestFullscreen?.().then(()=>tryPortrait()).catch(()=>tryPortrait());
-    loop();
-  }catch(e){
-    $('error').textContent='Erro: '+e.message;
-    btn.disabled=false;btn.textContent='Tentar novamente';
+  });
+}
+
+// ============================================================
+//  KEYBOARD - FINGER SELECTION
+// ============================================================
+function handleKeyboardFingerSelection(){
+  const kb = document.getElementById('keyboard');
+  if(kb.classList.contains('hidden')) return;
+  const keys = document.querySelectorAll('.kb-key');
+  ['left','right'].forEach(side=>{
+    const lm = handsData[side];
+    if(!lm||!lm[8]) return;
+    const fx = lm[8].x*window.innerWidth;
+    const fy = lm[8].y*window.innerHeight;
+    const pinch = isPinching(lm);
+    keys.forEach(el=>{
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left+rect.width/2, cy = rect.top+rect.height/2;
+      const d = Math.hypot(fx-cx, fy-cy);
+      if(d < 24){
+        el.classList.add('hovered');
+        if(pinch && !el._kbPinchFired){
+          el._kbPinchFired=true;
+          el.classList.add('active-pinch');
+          setTimeout(()=>el.classList.remove('active-pinch'),150);
+          typeKey(el.dataset.key);
+        }
+        if(!pinch) el._kbPinchFired=false;
+      } else {
+        el.classList.remove('hovered');
+        if(!pinch) el._kbPinchFired=false;
+      }
+    });
+  });
+}
+
+// ============================================================
+//  PC CONTROL via WebSocket
+// ============================================================
+function handlePCControl(){
+  const R = handsData.right;
+  if(!R||!R[8]) return;
+  const x = R[8].x, y = R[8].y;
+  throttledSend({type:'mouse_move', x, y});
+
+  if(rightPinching && !rightPinchPrev){
+    const now=Date.now();
+    if(now-lastPinchTime<300){
+      sendPC({type:'mouse_click', button:'right'});
+    } else {
+      sendPC({type:'mouse_click', button:'left'});
+    }
+    lastPinchTime=now;
+  }
+}
+
+let _lastMouseSend=0;
+function throttledSend(msg){
+  const now=Date.now();
+  if(now-_lastMouseSend>50){ _lastMouseSend=now; sendPC(msg); }
+}
+
+function sendPC(msg){
+  if(pcWebSocket&&pcWebSocket.readyState===WebSocket.OPEN){
+    pcWebSocket.send(JSON.stringify(msg));
   }
 }
 
 // ============================================================
-// BUTTON LISTENERS
+//  PC WEBSOCKET CONNECTION
 // ============================================================
-$('startBtn').addEventListener('click',start);
-$('centerBtn').addEventListener('click',centerCamera);
-$('previewBtn').addEventListener('click',()=>{
-  const show=video.style.display!=='block';
-  video.style.display=show?'block':'none';
-  $('previewBtn').textContent=show?'📷 Ocultar':'📷 Prévia';
-});
-$('passthroughBtn').addEventListener('click',togglePassthrough);
-$('fullBtn').addEventListener('click',()=>{
-  if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().then(()=>tryPortrait()).catch(()=>{});
-  else document.exitFullscreen?.();
-});
-document.addEventListener('visibilitychange',()=>{
-  if(!stream)return;
-  stream.getVideoTracks().forEach(t=>t.enabled=!document.hidden);
-});
+window.togglePCConnection = function(){
+  if(pcConnected){ disconnectPC(); }
+  else { connectPC(); }
+};
+
+function connectPC(){
+  const ip = document.getElementById('pcIpInput').value.trim();
+  const port = document.getElementById('pcPortInput').value.trim()||'9001';
+  if(!ip){ alert('Digite o IP do computador'); return; }
+  const url = `ws://${ip}:${port}`;
+  updateConnStatus('connecting');
+  try{
+    pcWebSocket = new WebSocket(url);
+    pcWebSocket.binaryType='blob';
+    pcWebSocket.onopen=()=>{
+      pcConnected=true;
+      updateConnStatus('connected');
+      document.getElementById('connectBtn').textContent='Desconectar';
+      showGestureFeedback('🖥️ PC Conectado!');
+      if(navigator.vibrate) navigator.vibrate([20,10,20]);
+      startPing();
+    };
+    pcWebSocket.onclose=()=>{
+      pcConnected=false;
+      updateConnStatus('disconnected');
+      document.getElementById('connectBtn').textContent='Conectar';
+      drawPCPanelOffline(pcScreenCtx);
+      pcScreenTexture.needsUpdate=true;
+      stopPing();
+    };
+    pcWebSocket.onerror=()=>{ updateConnStatus('disconnected'); };
+    pcWebSocket.onmessage=handlePCMessage;
+  }catch(e){ updateConnStatus('disconnected'); console.error(e); }
+}
+
+function disconnectPC(){
+  if(pcWebSocket){ pcWebSocket.close(); pcWebSocket=null; }
+  pcConnected=false;
+  updateConnStatus('disconnected');
+  document.getElementById('connectBtn').textContent='Conectar';
+}
+
+function handlePCMessage(evt){
+  if(evt.data instanceof Blob){
+    evt.data.text().then(txt=>processMsg(JSON.parse(txt)));
+  } else {
+    try{ processMsg(JSON.parse(evt.data)); }catch(e){}
+  }
+}
+
+const _frameImg = new Image();
+function processMsg(msg){
+  if(msg.type==='frame'){
+    _frameImg.onload=()=>{
+      pcScreenCtx.drawImage(_frameImg,0,0,pcScreenCanvas.width,pcScreenCanvas.height);
+      pcScreenTexture.needsUpdate=true;
+      pcFrameCount++;
+      document.getElementById('sysFrames').textContent=pcFrameCount;
+    };
+    _frameImg.src='data:image/jpeg;base64,'+msg.data;
+  } else if(msg.type==='pong'){
+    wsLatency = Date.now()-pingSentAt;
+    document.getElementById('sysLatency').textContent=wsLatency+'ms';
+  }
+}
+
+let pingInterval;
+function startPing(){
+  pingInterval=setInterval(()=>{
+    if(pcWebSocket&&pcWebSocket.readyState===WebSocket.OPEN){
+      pingSentAt=Date.now();
+      pcWebSocket.send(JSON.stringify({type:'ping'}));
+    }
+  },2000);
+}
+function stopPing(){ clearInterval(pingInterval); }
+
+function updateConnStatus(state){
+  const dot=document.getElementById('connDot');
+  const lbl=document.getElementById('connStatusLabel');
+  const wsInd=document.getElementById('wsIndicator');
+  const wsText=document.getElementById('wsStatusText');
+  dot.className='conn-dot';
+  wsInd.className='';
+  if(state==='connected'){
+    dot.classList.add('connected'); lbl.textContent='Conectado ✓';
+    wsInd.classList.add('connected'); wsText.textContent='Conectado';
+  } else if(state==='connecting'){
+    dot.classList.add('connecting'); lbl.textContent='Conectando...';
+    wsInd.classList.add('connecting'); wsText.textContent='Conectando...';
+  } else {
+    lbl.textContent='Desconectado';
+    wsText.textContent='Desconectado';
+  }
+}
+
+// ============================================================
+//  GYROSCOPE
+// ============================================================
+function initGyroscope(){
+  if(typeof DeviceOrientationEvent === 'undefined'){ console.warn('No gyro'); return; }
+  if(typeof DeviceOrientationEvent.requestPermission === 'function'){
+    DeviceOrientationEvent.requestPermission().then(res=>{
+      if(res==='granted') registerGyro();
+    }).catch(()=>{});
+  } else { registerGyro(); }
+}
+
+function registerGyro(){
+  window.addEventListener('deviceorientation', onGyro, true);
+  gyroEnabled=true;
+  document.getElementById('sysGyro').textContent='ON';
+  console.log('Gyroscope enabled');
+}
+
+function onGyro(evt){
+  if(!evt.alpha&&!evt.beta&&!evt.gamma) return;
+  const {alpha=0, beta=0, gamma=0} = evt;
+  document.getElementById('sysOrientation').textContent=
+    `α${alpha.toFixed(0)}°β${beta.toFixed(0)}°`;
+  if(!gyroCalibrated){ calibrateGyro(); }
+  const da = Math.abs(alpha-lastGyroAngles.alpha);
+  const db = Math.abs(beta-lastGyroAngles.beta);
+  const dg = Math.abs(gamma-lastGyroAngles.gamma);
+  const maxD = Math.max(da,db,dg);
+  if(maxD < gyroDeadzone) return; // deadzone
+  lastGyroAngles={alpha,beta,gamma};
+  const euler = new THREE.Euler(
+    beta*DEG2RAD, alpha*DEG2RAD, -gamma*DEG2RAD, 'YXZ'
+  );
+  const rawQ = new THREE.Quaternion().setFromEuler(euler);
+  targetQuat.multiplyQuaternions(baseQuaternion.clone().invert(), rawQ);
+  // Adaptive smooth: faster when delta is large
+  const adaptSmooth = maxD > 10 ? gyroSmoothFactor*3 : gyroSmoothFactor;
+  currentQuat.slerp(targetQuat, Math.min(adaptSmooth,1));
+}
+
+window.calibrateGyro = function(){
+  baseQuaternion.copy(currentQuat.clone().invert().multiply(new THREE.Quaternion()));
+  currentQuat.set(0,0,0,1);
+  targetQuat.set(0,0,0,1);
+  camera.quaternion.set(0,0,0,1);
+  gyroCalibrated=true;
+  showGestureFeedback('🎯 Giroscópio Calibrado');
+  if(navigator.vibrate) navigator.vibrate([30]);
+};
+
+// ============================================================
+//  GYROSCOPE INERTIA UPDATE
+// ============================================================
+function updateCamera(){
+  // Inertia: slowly continue drifting toward target
+  currentQuat.slerp(targetQuat, gyroSmoothFactor);
+  camera.quaternion.slerp(currentQuat, 0.5);
+  // Apply inertia: very slowly return to identity when no input
+  const idleQ = new THREE.Quaternion();
+  camera.quaternion.slerp(idleQ, (1-gyroInertiaFactor)*0.01);
+}
+
+// ============================================================
+//  RADIAL MENU
+// ============================================================
+function buildRadialMenu(){
+  const center = document.getElementById('radialCenter');
+  center.innerHTML='';
+  const n = RADIAL_ITEMS.length;
+  RADIAL_ITEMS.forEach((item,i)=>{
+    const angle = (2*Math.PI/n)*i - Math.PI/2;
+    const r = 100;
+    const x = r*Math.cos(angle);
+    const y = r*Math.sin(angle);
+    const el = document.createElement('div');
+    el.className='radial-item';
+    el.id='ri_'+item.id;
+    el.innerHTML=`<span class="icon">${item.icon}</span><span>${item.label}</span>`;
+    el.style.left=(120+x-40)+'px';
+    el.style.top=(120+y-40)+'px';
+    el.onclick=()=>{ item.action(); closeRadialMenu(); };
+    center.appendChild(el);
+  });
+}
+
+window.toggleRadialMenu = function(){
+  radialMenuOpen = !radialMenuOpen;
+  document.getElementById('radialMenu').classList.toggle('open',radialMenuOpen);
+  document.getElementById('btnMenu').classList.toggle('active',radialMenuOpen);
+};
+window.closeRadialMenu = function(){ radialMenuOpen=false; document.getElementById('radialMenu').classList.remove('open'); document.getElementById('btnMenu').classList.remove('active'); };
+
+function openPanelManager(){
+  // Open workspace panel - toggle between available panels
+  openPanel('connectionPanel');
+}
+
+// ============================================================
+//  OVERLAY PANELS
+// ============================================================
+window.openPanel = function(id){
+  document.getElementById(id).classList.remove('hidden');
+  closeRadialMenu();
+};
+window.closePanel = function(id){
+  document.getElementById(id).classList.add('hidden');
+};
+
+// ============================================================
+//  VIRTUAL KEYBOARD
+// ============================================================
+function buildKeyboard(){
+  const rows = ['kbRow1','kbRow2','kbRow3','kbRow4'];
+  KB_ROWS.forEach((row,ri)=>{
+    const container = document.getElementById(rows[ri]);
+    container.innerHTML='';
+    row.forEach(key=>{
+      const el=document.createElement('div');
+      el.className='kb-key';
+      if(key==='⌫'||key==='↵'||key==='⇧') el.classList.add('wide');
+      if(key===' ') el.classList.add('space');
+      el.textContent=key;
+      el.dataset.key=key;
+      el.onclick=()=>typeKey(key);
+      container.appendChild(el);
+    });
+    // Add space bar in last row
+    if(ri===3){
+      const sp=document.createElement('div');
+      sp.className='kb-key space'; sp.textContent='Espaço'; sp.dataset.key=' ';
+      sp.onclick=()=>typeKey(' ');
+      container.insertBefore(sp, container.children[Math.floor(container.children.length/2)]);
+    }
+  });
+}
+
+function typeKey(key){
+  if(navigator.vibrate) navigator.vibrate([10]);
+  if(pcConnected){
+    if(key==='⌫') sendPC({type:'key',key:'backspace'});
+    else if(key==='↵') sendPC({type:'key',key:'enter'});
+    else if(key==='⇧') sendPC({type:'key',key:'shift'});
+    else sendPC({type:'type',text:key});
+  }
+  // Also type into focused element
+  const active = document.activeElement;
+  if(active && (active.tagName==='INPUT'||active.tagName==='TEXTAREA')){
+    if(key==='⌫') active.value=active.value.slice(0,-1);
+    else if(key==='↵') active.value+='\n';
+    else active.value+=key;
+  }
+}
+
+window.toggleKeyboard = function(){
+  document.getElementById('keyboard').classList.toggle('hidden');
+};
+
+// ============================================================
+//  THEME
+// ============================================================
+window.toggleTheme = function(){
+  darkTheme = !darkTheme;
+  document.body.classList.toggle('light-theme',!darkTheme);
+  document.getElementById('darkToggle').checked=darkTheme;
+  document.getElementById('btnTheme').querySelector('.icon').textContent=darkTheme?'🌙':'☀️';
+  if(!passthroughActive) renderer.setClearColor(darkTheme?0x0a0a12:0xf0f0f8,1);
+  panels3D.forEach(p=>drawPanelContent(p.ctx,p.title,p.w,p.h,p.color));
+  updatePanelTextures();
+};
+
+window.setAccentColor = function(c1,c2){
+  document.documentElement.style.setProperty('--accent',c1);
+  document.documentElement.style.setProperty('--accent2',c2);
+  document.documentElement.style.setProperty('--glow',c1+'66');
+  document.querySelectorAll('.color-swatch').forEach(el=>{
+    el.classList.toggle('selected',el.dataset.color===c1);
+  });
+};
+
+window.toggleBottomBar = function(){
+  document.getElementById('bottomBar').style.display=
+    document.getElementById('bottomBarToggle').checked?'flex':'none';
+};
+
+// ============================================================
+//  SETTINGS SLIDERS
+// ============================================================
+function setupSettingsSliders(){
+  const gs=document.getElementById('gyroSmooth'),gv=document.getElementById('gyroSmoothVal');
+  gs.oninput=()=>{ gyroSmoothFactor=parseFloat(gs.value); gv.textContent=gs.value; };
+  const gd=document.getElementById('gyroDeadzone'),gdv=document.getElementById('gyroDeadzoneVal');
+  gd.oninput=()=>{ gyroDeadzone=parseFloat(gd.value); gdv.textContent=gd.value+'°'; };
+  const gi=document.getElementById('gyroInertia'),giv=document.getElementById('gyroInertiaVal');
+  gi.oninput=()=>{ gyroInertiaFactor=parseFloat(gi.value); giv.textContent=gi.value; };
+  const sf=document.getElementById('streamFps'),sfv=document.getElementById('streamFpsVal');
+  sf.oninput=()=>{ sfv.textContent=sf.value; };
+}
+
+// ============================================================
+//  BROWSER PANEL
+// ============================================================
+window.loadBrowserUrl = function(){
+  const url=document.getElementById('browserUrl').value;
+  document.getElementById('browserFrame').src=url;
+};
+
+// ============================================================
+//  COPY SERVER SCRIPT
+// ============================================================
+window.copyServerScript = function(){
+  const txt=document.getElementById('serverScriptContent').value;
+  navigator.clipboard.writeText(txt).then(()=>{
+    showGestureFeedback('📋 Script Copiado!');
+  }).catch(()=>{
+    document.getElementById('serverScriptContent').style.display='block';
+    document.getElementById('serverScriptContent').select();
+    document.execCommand('copy');
+    document.getElementById('serverScriptContent').style.display='none';
+    showGestureFeedback('📋 Script Copiado!');
+  });
+};
+
+// ============================================================
+//  GESTURE FEEDBACK OVERLAY
+// ============================================================
+function showGestureFeedback(msg){
+  const el=document.getElementById('gestureFeedback');
+  el.textContent=msg;
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer=setTimeout(()=>el.classList.remove('show'),1800);
+  const hint=document.getElementById('gestureHint');
+  hint.textContent=msg;
+  hint.classList.add('show');
+  clearTimeout(hint._timer);
+  hint._timer=setTimeout(()=>hint.classList.remove('show'),2500);
+}
+
+// ============================================================
+//  PROGRESS RING
+// ============================================================
+function showProgressRing(lm, duration){
+  const ring=document.getElementById('progressRing');
+  const circle=document.getElementById('progressRingCircle');
+  if(!lm){ ring.style.display='none'; return; }
+  ring.style.display='block';
+  ring.style.left=(lm.x*window.innerWidth-30)+'px';
+  ring.style.top=(lm.y*window.innerHeight-30)+'px';
+  circle.style.strokeDashoffset='100';
+  const start=Date.now();
+  function tick(){
+    const elapsed=Date.now()-start;
+    const progress=Math.min(elapsed/duration,1);
+    circle.style.strokeDashoffset=(100-progress*100).toFixed(1);
+    if(progress<1 && rightFistTimer) requestAnimationFrame(tick);
+    else hideProgressRing();
+  }
+  requestAnimationFrame(tick);
+}
+function hideProgressRing(){
+  document.getElementById('progressRing').style.display='none';
+}
+
+// ============================================================
+//  SYSTEM INFO UPDATE
+// ============================================================
+setInterval(()=>{
+  document.getElementById('sysFps').textContent=fps;
+  document.getElementById('sysLatency').textContent=pcConnected?(wsLatency+'ms'):'-';
+  document.getElementById('sysGyro').textContent=gyroEnabled?'ON':'OFF';
+},500);
+
+// ============================================================
+//  RENDER LOOP
+// ============================================================
+function animate(){
+  requestAnimationFrame(animate);
+  frameCount++;
+  if(gyroEnabled) updateCamera();
+  renderer.render(scene,camera);
+}
+
+// ============================================================
+//  BOOT
+// ============================================================
+init();
 </script>
 </body>
 </html>
