@@ -423,8 +423,15 @@ netsh advfirewall firewall add rule name="NGS VR HTTP" dir=in action=allow proto
     <div class="setting-row">
       <label>FPS do stream</label>
       <div class="range-group">
-        <input type="range" id="streamFps" min="5" max="30" step="1" value="15">
-        <span id="streamFpsVal">15</span>
+        <input type="range" id="streamFps" min="10" max="40" step="1" value="25">
+        <span id="streamFpsVal">25</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>Qualidade JPEG (%)</label>
+      <div class="range-group">
+        <input type="range" id="streamQuality" min="40" max="95" step="5" value="80">
+        <span id="streamQualityVal">80%</span>
       </div>
     </div>
     <div class="section-title">🎨 Aparência</div>
@@ -458,20 +465,20 @@ netsh advfirewall firewall add rule name="NGS VR HTTP" dir=in action=allow proto
   </div>
 </div>
 
-<!-- ===== BROWSER PANEL (favoritos - sem iframe) ===== -->
+<!-- ===== PC BROWSER PANEL ===== -->
 <div class="panel-overlay hidden" id="browserPanel">
   <div class="panel-header">
     <h3>🌐 Navegador</h3>
     <button class="panel-close" onclick="closePanel('browserPanel')">✕</button>
   </div>
   <div class="panel-body">
-    <div class="conn-hint" style="margin-bottom:10px;">Sites abertos no navegador padrão do sistema</div>
+    <div class="conn-hint" style="margin-bottom:10px;">Conecte o PC: os sites abrirão em novas abas no navegador do computador e aparecerão na tela 3D.</div>
     <div class="fav-grid" id="favGrid"></div>
     <div class="url-bar">
       <input type="url" id="browserUrl" placeholder="https://...">
       <button class="btn-primary" style="width:auto;padding:6px 12px;margin:0;" onclick="openBrowserUrl()">Abrir</button>
     </div>
-    <div class="browser-hint">🔗 Os links abrirão no navegador padrão do sistema via nova aba</div>
+    <div class="browser-hint">Cada favorito ou endereço abre uma nova aba no PC conectado.</div>
   </div>
 </div>
 
@@ -525,9 +532,10 @@ netsh advfirewall firewall add rule name="NGS VR HTTP" dir=in action=allow proto
 # ============================================================
 
 import asyncio, websockets, mss, base64, json, threading, hmac, secrets
-import pyautogui, io, socket, os, sys
+import pyautogui, io, socket, os, sys, webbrowser
 from PIL import Image
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse
 
 sys.stdout.reconfigure(errors="replace")
 sys.stderr.reconfigure(errors="replace")
@@ -537,6 +545,8 @@ CLIENTS = set()
 AUTH_TOKEN = secrets.token_urlsafe(32)
 SCREEN_W, SCREEN_H = pyautogui.size()
 TARGET_FPS = 15
+FRAME_SIZE = (1280, 720)
+JPEG_QUALITY = 70
 HTML_PATH = os.path.abspath(__file__.replace('.py', '.html'))
 if not os.path.exists(HTML_PATH):
     HTML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'NGS_VR_Workspace_0.4.html')
@@ -581,9 +591,9 @@ async def capture_and_send(ws):
             t = 1.0 / TARGET_FPS
             img = sct.grab(mon)
             pil = Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
-            pil = pil.resize((960, 540), Image.LANCZOS)
+            pil = pil.resize(FRAME_SIZE, Image.LANCZOS)
             buf = io.BytesIO()
-            pil.save(buf, format="JPEG", quality=50)
+            pil.save(buf, format="JPEG", quality=JPEG_QUALITY)
             b64 = base64.b64encode(buf.getvalue()).decode()
             await ws.send(json.dumps({"type": "frame", "data": b64}))
             await asyncio.sleep(t)
@@ -630,6 +640,18 @@ async def handler(ws):
                     pyautogui.press(cmd["key"])
                 elif t == "type":
                     pyautogui.write(cmd["text"], interval=0.02)
+                elif t == "open_url":
+                    url = cmd.get("url")
+                    parsed = urlparse(url) if isinstance(url, str) else None
+                    if parsed and parsed.scheme in ("http", "https") and parsed.netloc:
+                        try:
+                            opened = webbrowser.open(url, new=2)
+                        except (webbrowser.Error, OSError) as exc:
+                            print(f"[Browser] Não foi possível abrir o endereço: {exc}")
+                            opened = False
+                        await ws.send(json.dumps({"type": "open_url_result", "ok": bool(opened)}))
+                    else:
+                        await ws.send(json.dumps({"type": "open_url_result", "ok": False}))
                 elif t == "ping":
                     await ws.send(json.dumps({"type": "pong", "ts": cmd.get("ts", 0)}))
                 elif t == "set_fps":
@@ -769,15 +791,15 @@ const KB_ROWS = [
 //  FAVORITOS DO BROWSER (PROBLEMA 4)
 // ============================================================
 const FAVORITES = [
-  {icon:'🔍', name:'Google',    url:'https://www.google.com'},
   {icon:'📺', name:'YouTube',   url:'https://www.youtube.com'},
+  {icon:'🎬', name:'YT Cinema', url:'https://www.youtube.com/feed/subscriptions'},
+  {icon:'🔍', name:'Google',    url:'https://www.google.com'},
   {icon:'📖', name:'Wikipedia', url:'https://en.m.wikipedia.org'},
   {icon:'🐙', name:'GitHub',    url:'https://github.com'},
   {icon:'🗺️', name:'Maps',     url:'https://maps.google.com'},
   {icon:'📰', name:'BBC News',  url:'https://www.bbc.com/news'},
   {icon:'🌤️', name:'Clima',    url:'https://weather.com'},
   {icon:'🎵', name:'Spotify',   url:'https://open.spotify.com'},
-  {icon:'🔬', name:'arXiv',     url:'https://arxiv.org'},
 ];
 
 // ============================================================
@@ -1029,14 +1051,22 @@ function createDefaultPanels(){
 
 function createPCPanel(){
   pcScreenCanvas = document.createElement('canvas');
-  pcScreenCanvas.width=960; pcScreenCanvas.height=540;
-  pcScreenCtx = pcScreenCanvas.getContext('2d');
+  pcScreenCanvas.width=1600; pcScreenCanvas.height=900;
+  pcScreenCtx = pcScreenCanvas.getContext('2d', {alpha: false});
+  pcScreenCtx.imageSmoothingEnabled = true;
+  pcScreenCtx.imageSmoothingQuality = 'high';
   drawPCPanelOffline(pcScreenCtx);
   pcScreenTexture = new THREE.CanvasTexture(pcScreenCanvas);
-  const geo = new THREE.PlaneGeometry(2.4,1.4);
-  const mat = new THREE.MeshStandardMaterial({map:pcScreenTexture,transparent:false});
+  pcScreenTexture.colorSpace = THREE.SRGBColorSpace;
+  pcScreenTexture.minFilter = THREE.LinearFilter;
+  pcScreenTexture.magFilter = THREE.LinearFilter;
+  pcScreenTexture.generateMipmaps = false;
+  pcScreenTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const screenWidth = 2.8, screenHeight = 1.575;
+  const geo = new THREE.PlaneGeometry(screenWidth,screenHeight);
+  const mat = new THREE.MeshBasicMaterial({map:pcScreenTexture,transparent:false,toneMapped:false});
   pcScreenPanel = new THREE.Mesh(geo,mat);
-  pcScreenPanel.position.set(0,0.4,-3.2);
+  centerPCScreen();
   const edgeGeo = new THREE.EdgesGeometry(geo);
   pcScreenPanel.add(new THREE.LineSegments(edgeGeo,new THREE.LineBasicMaterial({color:0x7c3aed})));
   scene.add(pcScreenPanel);
@@ -1048,9 +1078,43 @@ function createPCPanel(){
   tCtx.fillStyle='#fff'; tCtx.font='bold 22px system-ui';
   tCtx.fillText('🖥️ TELA DO PC',12,32);
   const tTex = new THREE.CanvasTexture(tCanvas);
-  const tMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.4,0.14), new THREE.MeshStandardMaterial({map:tTex,transparent:true}));
-  tMesh.position.set(0,0.4+0.7+0.07,0.001);
+  const tMesh = new THREE.Mesh(new THREE.PlaneGeometry(screenWidth,0.14), new THREE.MeshBasicMaterial({map:tTex,transparent:true,toneMapped:false}));
+  tMesh.position.set(0,screenHeight/2+0.07,0.001);
   pcScreenPanel.add(tMesh);
+}
+
+function centerPCScreen(){
+  if(!camera||!pcScreenPanel) return;
+  // Coloca a tela exatamente na frente da linha de visão atual do usuário
+  const forward = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+  const up = new THREE.Vector3(0,1,0).applyQuaternion(camera.quaternion);
+  // Distância confortável de 2.0m e na altura exata dos olhos
+  pcScreenPanel.position.copy(camera.position)
+    .addScaledVector(forward, 2.0)
+    .addScaledVector(up, 0.0);
+  pcScreenPanel.quaternion.copy(camera.quaternion);
+
+  // Também posiciona os painéis secundários nos flancos para não cobrirem a tela do PC
+  if(panels3D && panels3D.length){
+    const right = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
+    panels3D.forEach((p, idx)=>{
+      if(p.mesh && p.mesh !== pcScreenPanel){
+        if(p.title.includes('Workspace') || idx === 0){
+          p.mesh.position.copy(camera.position).addScaledVector(forward, 2.2).addScaledVector(right, -1.8);
+          p.mesh.quaternion.copy(camera.quaternion);
+          p.mesh.rotateY(0.35); // levemente voltado para o centro
+        } else if(p.title.includes('Sensor') || idx === 1){
+          p.mesh.position.copy(camera.position).addScaledVector(forward, 2.2).addScaledVector(right, 1.8);
+          p.mesh.quaternion.copy(camera.quaternion);
+          p.mesh.rotateY(-0.35);
+        } else if(p.title.includes('Notas') || idx === 2){
+          p.mesh.position.copy(camera.position).addScaledVector(forward, 1.8).addScaledVector(up, -0.9);
+          p.mesh.quaternion.copy(camera.quaternion);
+          p.mesh.rotateX(-0.35);
+        }
+      }
+    });
+  }
 }
 
 function drawPCPanelOffline(ctx){
@@ -1548,10 +1612,15 @@ function processMsg(msg){
     showDiag('✅ Autenticado e conectado a '+pcWebSocket.url);
     if(navigator.vibrate) navigator.vibrate([20,10,20]);
     startPing();
-    const fps = parseInt(document.getElementById('streamFps').value)||15;
+    const fps = parseInt(document.getElementById('streamFps').value)||25;
     sendPC({type:'set_fps', fps});
+    const quality = parseInt(document.getElementById('streamQuality')?.value)||80;
+    sendPC({type:'set_quality', quality});
+    centerPCScreen();
   } else if(msg.type==='auth_error'){
     showDiag('❌ Token de acesso inválido. Confira o token no terminal do PC.');
+  } else if(msg.type==='open_url_result'&&!msg.ok){
+    showGestureFeedback('❌ Não consegui abrir o navegador no PC');
   } else if(msg.type==='frame'){
     _frameImg.onload=()=>{
       pcScreenCtx.drawImage(_frameImg,0,0,pcScreenCanvas.width,pcScreenCanvas.height);
@@ -1664,7 +1733,7 @@ function onGyro(evt){
   camera.quaternion.slerp(targetQuat, smooth);
 }
 
-// CALIBRAR: salvar ângulos atuais como referência e resetar câmera
+// CALIBRAR: salvar ângulos atuais como referência e reposicionar o mundo virtual na frente
 window.calibrateGyro = function(){
   if(lastGyroEvent){
     refAlpha = lastGyroEvent.alpha || 0;
@@ -1674,7 +1743,11 @@ window.calibrateGyro = function(){
   camera.quaternion.set(0,0,0,1);
   targetQuat.set(0,0,0,1);
   gyroCalibrated = true;
-  showGestureFeedback('🎯 Calibrado!');
+
+  // Reposiciona a tela do PC e janelas na frente exata do usuário
+  centerPCScreen();
+
+  showGestureFeedback('🎯 Tela centralizada na sua visão');
   if(navigator.vibrate) navigator.vibrate([30]);
 };
 
@@ -1792,21 +1865,40 @@ function buildFavorites(){
     const el = document.createElement('div');
     el.className='fav-item';
     el.innerHTML=`<span class="fav-icon">${fav.icon}</span><span class="fav-name">${fav.name}</span>`;
-    el.onclick=()=>window.open(fav.url, '_blank');
+    el.onclick=()=>openSiteOnPC(fav.url);
     grid.appendChild(el);
   });
   // Adicionar seleção por gesto
   grid.querySelectorAll('.fav-item').forEach((el,i)=>{
     el._favUrl = FAVORITES[i].url;
-    el._action = ()=>window.open(FAVORITES[i].url, '_blank');
+    el._action = ()=>openSiteOnPC(FAVORITES[i].url);
   });
+}
+
+function openSiteOnPC(value){
+  const input = String(value||'').trim();
+  if(!input) return;
+  const target = /^https?:\/\//i.test(input)?input:'https://'+input;
+  let parsed;
+  try{ parsed = new URL(target); }
+  catch(e){ showGestureFeedback('Endereço inválido'); return; }
+  if((parsed.protocol!=='http:'&&parsed.protocol!=='https:')||!parsed.hostname){
+    showGestureFeedback('Use um endereço HTTP ou HTTPS');
+    return;
+  }
+  if(!pcConnected){
+    showGestureFeedback('Conecte o PC pelo Menu → PC primeiro');
+    return;
+  }
+  sendPC({type:'open_url',url:parsed.href});
+  closePanel('browserPanel');
+  centerPCScreen();
+  showGestureFeedback('🌐 Abrindo '+parsed.hostname+' na tela central do PC');
 }
 
 window.openBrowserUrl = function(){
   const url = document.getElementById('browserUrl').value.trim();
-  if(!url) return;
-  const target = url.startsWith('http')?url:'https://'+url;
-  window.open(target, '_blank');
+  openSiteOnPC(url);
 };
 
 // Seleção de favorito por gesto
@@ -1884,6 +1976,14 @@ function setupSettingsSliders(){
     sfv.textContent=sf.value;
     if(pcConnected) sendPC({type:'set_fps', fps:parseInt(sf.value)});
   };
+
+  const sq=document.getElementById('streamQuality'),sqv=document.getElementById('streamQualityVal');
+  if(sq && sqv){
+    sq.oninput=()=>{
+      sqv.textContent=sq.value+'%';
+      if(pcConnected) sendPC({type:'set_quality', quality:parseInt(sq.value)});
+    };
+  }
 
   // IPD slider (PROBLEMA 5)
   const ipd=document.getElementById('ipdSlider'),ipdv=document.getElementById('ipdVal');
